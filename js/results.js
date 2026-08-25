@@ -286,6 +286,38 @@ export function traceFor(json) {
   return { kind: 'none', segments: [], bars: [], winStart, winEnd };
 }
 
+/* ── importing an old test ──────────────────────────────────
+   A file recovered from a filename knows things its own contents do
+   not: early exports recorded the hand but neither the athlete nor
+   the grip, and `toDataset` reads those out of the name of the file.
+
+   Once the test is in the database there is no filename any more. So
+   what gets stored is the raw document with the recovered fields
+   written into it — otherwise the athlete would be lost at exactly
+   the moment the file stops existing, and the rules would refuse it
+   anyway for not looking like a test.
+
+   The device's own numbers are untouched. Only the labelling is
+   filled in. */
+const GRIP_SLUG = {
+  'Half Crimp': 'half-crimp',
+  '3 Finger Drag': '3-finger-drag'
+};
+
+export function documentFor(ds) {
+  const raw = ds.raw || {};
+  return Object.assign({}, raw, {
+    name: ds.name,
+    /* Rules require exactly 'left' or 'right'; the dataset carries it
+       title-cased for display. */
+    hand: String(ds.hand || raw.hand || '').toLowerCase(),
+    grip: raw.grip || GRIP_SLUG[ds.grip] ||
+          String(ds.grip || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'unknown',
+    gripLabel: raw.gripLabel || ds.grip || null,
+    bodyweight: raw.bodyweight != null ? raw.bodyweight : (ds.bodyweight != null ? ds.bodyweight : null)
+  });
+}
+
 /* ── the download ───────────────────────────────────────────
    Kept whatever the database did. Four minutes of hanging is not
    repeatable, so a saved test that only exists on a server one

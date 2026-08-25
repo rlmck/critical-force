@@ -161,9 +161,10 @@ button,
 
 .import-btn { min-height: 3rem; }
 
-/* The chevron needs to be a thumb target, not a glyph. */
-.history-pick { padding: 0.85rem; gap: 0.7rem; }
-.history-open { padding: 0 1rem; min-width: 3rem; }
+/* Both controls stay thumb-sized; only the wording shrinks. */
+.history-cmp { padding: 0 0.8rem; min-width: 2.9rem; justify-content: center; }
+.history-open { padding: 0.85rem 0.8rem; gap: 0.6rem; }
+.history-go { font-size: 0.78rem; }
 
 /* Held at a readable width and scrolled, rather than squeezed to
    375px where 24 reps become a smear. */

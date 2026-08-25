@@ -4,8 +4,8 @@
     {
       "name": "critical-force",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "5178"],
-      "port": 5178
+      "runtimeArgs": ["tools/serve.py", "5190"],
+      "port": 5190
     }
   ]
 }

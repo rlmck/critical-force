@@ -17,7 +17,7 @@ import {
   stateMachine, scaleIntegration, audio, setView
 } from '../engine.js';
 import { PALETTE, OverlayChart, computeResults } from '../analysis.js';
-import { buildExport, filenameFor, toDataset, traceFor, download, titleCase } from '../results.js';
+import { buildExport, filenameFor, toDataset, traceFor, documentFor, download, titleCase } from '../results.js';
 import { store, saveTest, listTests, message } from '../store.js';
 import { TraceChart } from '../trace.js';
 
@@ -415,6 +415,28 @@ export class BaseView {
             allReps: stateMachine.repData,
             allReadings: stateMachine.allReadings
         });
+
+        /* The moment you most want the trace is straight after the
+           test, before it has been saved anywhere. Build the same
+           document the export would produce so the detail view has
+           something to draw right now. */
+        const now = new Date();
+        this.lastTest = {
+            id: 'live',
+            name: appData.name,
+            hand: handLabel,
+            grip: GRIPS[appData.grip],
+            date: now,
+            cf: r.cf,
+            cfRatio: r.ratio,
+            bodyweight: appData.bodyweight,
+            arcZone: r.arcZone,
+            thresholdZone: r.thresholdZone,
+            repData: stateMachine.repData,
+            unreliableReps: r.unreliableReps,
+            source: 'live',
+            raw: buildExport(appData, stateMachine, appData.results, now)
+        };
     }
 
     renderResultsChart(cf) {
@@ -587,7 +609,7 @@ export class BaseView {
     const failed = [];
     for (const ds of pending) {
       try {
-        await saveTest(ds.raw);
+        await saveTest(documentFor(ds));
         ds.imported = true;
         ok++;
       } catch (err) {
@@ -681,7 +703,10 @@ export class BaseView {
       this.renderHistory();
     });
     this.on('importBtn', 'click', () => this.importFiles());
-    this.on('detailBack', 'click', () => this.showScreen('history'));
+    this.on('viewReadingsBtn', 'click', () => this.showDetail('live'));
+    /* Back goes where you came from, not always to the history — a
+       test you have just finished is not in the history yet. */
+    this.on('detailBack', 'click', () => this.showScreen(this.detailFrom === 'results' ? 'results' : 'history'));
   }
 
   renderHistoryStatus(text) {
@@ -754,17 +779,28 @@ export class BaseView {
       row.className = 'history-row' + (idx >= 0 ? ' selected' : '');
       if (idx >= 0) row.style.setProperty('--dot', PALETTE[idx % PALETTE.length]);
 
-      /* The row body toggles the overlay; the chevron opens the test.
-         Two jobs, two targets — a row that did both on one tap would
-         make comparing and inspecting the same gesture. */
-      const pick = document.createElement('button');
-      pick.type = 'button';
-      pick.className = 'history-pick';
-      pick.setAttribute('aria-pressed', idx >= 0 ? 'true' : 'false');
-      pick.addEventListener('click', () => this.toggleSelected(ds.id));
+      /* Opening a test is the main thing you do to a row, so the row
+         is the target for it. Adding one to the comparison chart is
+         the narrower intention and gets its own small control — the
+         first arrangement had these the other way round and the
+         detail view was effectively hidden behind a chevron. */
+      const cmp = document.createElement('button');
+      cmp.type = 'button';
+      cmp.className = 'history-cmp';
+      cmp.setAttribute('aria-pressed', idx >= 0 ? 'true' : 'false');
+      cmp.setAttribute('aria-label', `${idx >= 0 ? 'Remove' : 'Add'} ${ds.name} ${ds.hand} hand ${idx >= 0 ? 'from' : 'to'} the comparison chart`);
+      cmp.title = 'Show on the comparison chart';
+      cmp.addEventListener('click', () => this.toggleSelected(ds.id));
 
       const dot = document.createElement('span');
       dot.className = 'history-dot';
+      cmp.appendChild(dot);
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'history-open';
+      open.setAttribute('aria-label', `View every reading from ${ds.name}, ${ds.hand} hand`);
+      open.addEventListener('click', () => this.showDetail(ds.id));
 
       const main = document.createElement('span');
       main.className = 'history-main';
@@ -788,16 +824,14 @@ export class BaseView {
       ratio.className = 'history-ratio';
       ratio.textContent = ds.cfRatio ? ds.cfRatio.toFixed(2) + 'x' : '—';
 
-      pick.append(dot, main, cf, ratio);
+      /* Says what it does. A bare chevron is a promise the reader has
+         to guess at, and this is the feature the screen exists for. */
+      const go = document.createElement('span');
+      go.className = 'history-go';
+      go.textContent = 'View readings ›';
 
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'history-open';
-      open.textContent = '›';
-      open.setAttribute('aria-label', `Open ${ds.name} ${ds.hand} hand in detail`);
-      open.addEventListener('click', () => this.showDetail(ds.id));
-
-      row.append(pick, open);
+      open.append(main, cf, ratio, go);
+      row.append(cmp, open);
       list.appendChild(row);
     });
 
@@ -836,11 +870,19 @@ export class BaseView {
      is the raw trace with each rep's averaging window drawn on top of
      it, so the headline number stops being something you take on
      trust and becomes something you can see being measured. */
+  /* Reachable from two places: a row in the history, and the results
+     screen of a test that has only just finished and may not be in
+     the history yet. */
   showDetail(id) {
-    const ds = (this.datasets || []).find(d => d.id === id);
+    const ds = id === 'live'
+      ? this.lastTest
+      : (this.datasets || []).find(d => d.id === id);
     if (!ds) return;
     this.detail = ds;
+    this.detailFrom = id === 'live' ? 'results' : 'history';
     this.showScreen('detail');
+    const back = el('detailBack');
+    if (back) back.textContent = this.detailFrom === 'results' ? '‹ Back to result' : '‹ Back to history';
 
     const set = (elId, text) => { const n = el(elId); if (n) n.textContent = text; };
     set('detailTitle', `${ds.name} · ${ds.hand} hand`);

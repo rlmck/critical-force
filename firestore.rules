@@ -3,51 +3,64 @@ rules_version = '2';
 /* ══════════════════════════════════════════════════════════════
    Critical Force — access control
 
-   One shared space. Every test is visible to everyone who opens the
-   app, and anyone who opens it can record one. That is the design and
-   not an oversight: this is a load cell in a gym, and the friction of
+   One shared space, and genuinely no login. Everyone who opens the
+   app sees every test, and anyone who opens it can record one. That
+   is the design: this is a load cell in a gym, and the friction of
    accounts buys nothing when the people in the room are the people
    who should see the numbers.
 
-   What the rules do buy is a floor. `signedIn()` here means an
-   anonymous account minted by the app itself — nobody types anything
-   — so the collection is not simply open to the internet, and a
-   document has to look like a test before it is accepted. It stops
-   drive-by writes and malformed data. It is not a wall, and nothing
-   in here should be read as one: do not put anything in this project
-   that would matter if a stranger read it.
+   There is no sign-in of any kind, not even an invisible one. An
+   earlier version minted an anonymous account so these rules had
+   something to check other than "anybody" — but enabling anonymous
+   sign-in is a console setting, it was never switched on, and the
+   result was an app that silently refused to save anything. A floor
+   that stops the app working is worse than no floor.
+
+   So the floor is the *shape* instead. A document has to look like a
+   critical-force test before it is accepted: a name, a timestamp, a
+   hand, a grip, a plausible force, and a non-empty list of reps. That
+   stops malformed writes and drive-by junk. It stops nothing else, and
+   nothing here should be read as if it did.
+
+   **Do not put anything in this project that would matter if a
+   stranger read it.** Everything in `tests` is world-readable.
+
+   Deletes are refused outright. The worst a passer-by can do is add a
+   row; they cannot remove a real test. The app has no delete button,
+   so nothing legitimate needs it — remove a bad test from the console.
 
    This project shares nothing with the Coach app — separate project,
-   separate database, separate accounts. Tests reach Coach as a file
-   somebody uploads, and never through here.
+   separate database. Tests reach Coach as a file somebody uploads.
    ══════════════════════════════════════════════════════════════ */
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function signedIn() { return request.auth != null; }
-
     match /tests/{testId} {
-      allow read: if signedIn();
+      allow read: if true;
 
       /* Validated on the fields every reader depends on. `timestamp`
-         is the sort key for the history screen and the id is built
-         from it, so a test without one is a test no screen can place.
-         The rest is the shape toDataset() insists on — better a
+         is the sort key for the history screen and the document id is
+         built from it, so a test without one is a test no screen can
+         place. The rest is the shape toDataset() insists on — better a
          refused write than a row that breaks the list it lands in. */
-      allow create, update: if signedIn()
-        && request.resource.data.name is string
+      allow create, update: if
+           request.resource.data.name is string
         && request.resource.data.name.size() > 0
         && request.resource.data.name.size() <= 60
         && request.resource.data.timestamp is string
+        && request.resource.data.timestamp.size() >= 10
+        && request.resource.data.timestamp.size() <= 40
         && request.resource.data.hand in ['left', 'right']
         && request.resource.data.grip is string
+        && request.resource.data.grip.size() <= 40
         && request.resource.data.criticalForce is number
         && request.resource.data.criticalForce >= 0
         && request.resource.data.criticalForce < 200
         && request.resource.data.allReps is list
-        && request.resource.data.allReps.size() > 0;
+        && request.resource.data.allReps.size() > 0
+        && request.resource.data.allReps.size() <= 100;
 
-      allow delete: if signedIn();
+      allow delete: if false;
     }
 
     /* Anything not named above is closed. */

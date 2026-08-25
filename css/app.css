@@ -947,9 +947,26 @@ body.phase-hanging .phase-fill {
     padding: 0;
     overflow: hidden;
 }
-.history-pick {
+/* The narrow control: adds this test to the comparison chart. */
+.history-cmp {
+    width: auto;
+    margin: 0;
+    padding: 0 0.9rem;
+    background: transparent;
+    border: none;
+    border-right: 1px solid #3a3a3a;
+    border-radius: 0;
+    display: flex;
+    align-items: center;
+    cursor: pointer;
+}
+.history-cmp:hover { background: #2f2f2f; }
+.history-cmp[aria-pressed="true"] { background: #2b2b2b; }
+
+/* The wide control: opens the test. This is the row. */
+.history-open {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: 1fr auto auto auto;
     align-items: center;
     gap: 0.85rem;
     flex: 1;
@@ -965,20 +982,13 @@ body.phase-hanging .phase-fill {
     font-size: inherit;
     cursor: pointer;
 }
-.history-open {
-    width: auto;
-    margin: 0;
-    padding: 0 1.1rem;
-    background: transparent;
-    border: none;
-    border-left: 1px solid #3a3a3a;
-    border-radius: 0;
-    color: #8a8a8a;
-    font-size: 1.6rem;
-    line-height: 1;
-    cursor: pointer;
+.history-open:hover { background: #2f2f2f; }
+.history-go {
+    color: #6a9fd8;
+    font-size: 0.85rem;
+    white-space: nowrap;
 }
-.history-open:hover { background: #2f2f2f; color: #fff; }
+.history-open:hover .history-go { color: #8fc0f0; }
 
 /* -- the trace ------------------------------------------------
    Wide by nature: 24 reps of raw readings. It keeps its width and

@@ -42,36 +42,22 @@ async function connect() {
 
   loading = (async () => {
     const base = `https://www.gstatic.com/firebasejs/${CONFIG.sdkVersion}`;
-    const [A, U, F] = await Promise.all([
+    /* No auth module. There is no sign-in of any kind — see
+       firestore.rules, where the shape of the document is the only
+       thing standing between the collection and the open internet.
+       Not loading the SDK at all is one less thing to go wrong and
+       one less round trip before the first read. */
+    const [A, F] = await Promise.all([
       import(`${base}/firebase-app.js`),
-      import(`${base}/firebase-auth.js`),
       import(`${base}/firebase-firestore.js`)
     ]);
 
-    const app  = A.initializeApp(CONFIG.firebase);
-    const db   = F.getFirestore(app);
-    const auth = U.initializeAuth(app, {
-      persistence: [U.indexedDBLocalPersistence, U.browserLocalPersistence]
-    });
+    const app = A.initializeApp(CONFIG.firebase);
+    const db  = F.getFirestore(app);
 
-    if (CONFIG.useEmulators) {
-      U.connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true });
-      F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
-    }
+    if (CONFIG.useEmulators) F.connectFirestoreEmulator(db, '127.0.0.1', 8080);
 
-    /* Wait for an identity before the first write. Anonymous sign-in
-       is the whole of the authentication story: it exists so the
-       rules can require *an* account, which keeps the collection off
-       the open internet without putting a password in front of
-       somebody holding a hangboard. */
-    await new Promise((resolve, reject) => {
-      const stop = U.onAuthStateChanged(auth, user => {
-        if (user) { stop(); resolve(user); }
-        else U.signInAnonymously(auth).catch(err => { stop(); reject(err); });
-      }, err => { stop(); reject(err); });
-    });
-
-    fb = { app, db, auth, F };
+    fb = { app, db, F };
     store.ready = true;
     return fb;
   })().catch(err => {
@@ -94,10 +80,12 @@ async function connect() {
   return loading;
 }
 
+/* Failures that will repeat identically on every retry. A misconfigured
+   project should be reported once, not re-attempted on every visit to
+   the history. A dropped connection is not on this list, because that
+   one is worth trying again. */
 const PERMANENT = [
-  'auth/configuration-not-found',
-  'auth/operation-not-allowed',
-  'auth/admin-restricted-operation',
+  'permission-denied',
   'auth/api-key-not-valid'
 ];
 
@@ -156,12 +144,11 @@ export async function deleteTest(id) {
 export function message(err) {
   const code = (err && err.code) || '';
   const map = {
-    'permission-denied':           'The database refused that write. Check the rules are deployed.',
-    'unavailable':                 'No connection — the test downloaded instead.',
-    'failed-precondition':         'The database has no index for that query yet.',
-    'auth/operation-not-allowed':  'Anonymous sign-in is switched off for this Firebase project, so nothing can be saved. Turn it on in Authentication → Sign-in method.',
-    'auth/network-request-failed': 'No connection — the test downloaded instead.',
-    'auth/configuration-not-found':'This Firebase project has no sign-in method enabled yet.'
+    'permission-denied':   'The database refused that write — the rules rejected the shape of the test. Check firestore.rules is deployed.',
+    'unavailable':         'No connection to the database.',
+    'failed-precondition': 'The database has no index for that query yet.',
+    'not-found':           'This Firebase project has no Firestore database yet.',
+    'invalid-argument':    'The database refused that test as malformed.'
   };
   return map[code] || (err && err.message) || 'Something went wrong.';
 }
