@@ -137,3 +137,40 @@ button,
 /* Dropping a file needs a window to drag from. Tapping to browse
    works on a phone; the drag hint does not. */
 .upload-hint { display: none; }
+
+/* -- filters, two-up ------------------------------------------
+   A four-across filter row does not fit 375px. Two columns keeps
+   every select wide enough to read its own value. */
+.filter-bar {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.6rem;
+    padding: 0.75rem;
+}
+.filter select { min-height: 2.75rem; font-size: 16px; }
+.filter-count {
+    grid-column: 1;
+    margin-left: 0;
+    align-self: center;
+}
+.filter-clear {
+    grid-column: 2;
+    min-height: 2.5rem;
+    justify-self: end;
+}
+
+.import-btn { min-height: 3rem; }
+
+/* The chevron needs to be a thumb target, not a glyph. */
+.history-pick { padding: 0.85rem; gap: 0.7rem; }
+.history-open { padding: 0 1rem; min-width: 3rem; }
+
+/* Held at a readable width and scrolled, rather than squeezed to
+   375px where 24 reps become a smear. */
+.trace-svg { min-width: 720px; }
+.trace-container { padding: 0.35rem; }
+
+.rep-row { grid-template-columns: 1.6rem 1fr 4.2rem; gap: 0.5rem; }
+.rep-val { font-size: 0.8rem; }
+
+.detail-back { min-height: 2.75rem; }

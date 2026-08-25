@@ -77,11 +77,29 @@ async function connect() {
   })().catch(err => {
     loading = null;
     store.error = err;
+    /* Two different kinds of failure wear the same shape here. A
+       dropped connection is worth trying again on the next screen; a
+       project with no sign-in method enabled will fail identically
+       every time, and retrying it just makes every visit to the
+       history wait three seconds to be told the same thing. So a
+       configuration fault closes the store for the session and the UI
+       goes quiet about it. */
+    if (PERMANENT.includes(err && err.code)) {
+      store.available = false;
+      store.fatal = err;
+    }
     throw err;
   });
 
   return loading;
 }
+
+const PERMANENT = [
+  'auth/configuration-not-found',
+  'auth/operation-not-allowed',
+  'auth/admin-restricted-operation',
+  'auth/api-key-not-valid'
+];
 
 /* ── writing ────────────────────────────────────────────────
    The id is the test's own timestamp with the athlete, hand and

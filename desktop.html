@@ -146,6 +146,34 @@
                 </label>
             </div>
 
+            <button id="importBtn" class="import-btn" style="display:none">Import to database</button>
+
+            <div class="filter-bar">
+                <label class="filter">
+                    <span>Athlete</span>
+                    <select id="filterAthlete" data-any-label="All athletes"></select>
+                </label>
+                <label class="filter">
+                    <span>Grip</span>
+                    <select id="filterGrip" data-any-label="All grips"></select>
+                </label>
+                <label class="filter">
+                    <span>Hand</span>
+                    <select id="filterHand" data-any-label="Both"></select>
+                </label>
+                <label class="filter">
+                    <span>When</span>
+                    <select id="filterDate">
+                        <option value="">Any time</option>
+                        <option value="30">Last 30 days</option>
+                        <option value="90">Last 3 months</option>
+                        <option value="365">Last year</option>
+                    </select>
+                </label>
+                <span class="filter-count" id="filterCount"></span>
+                <button type="button" class="filter-clear" id="filterClear" style="display:none">Clear</button>
+            </div>
+
             <div id="historyList" class="history-list"></div>
 
             <div id="historyChartSection" class="overlay-section" style="display:none">
@@ -161,6 +189,51 @@
             </div>
 
             <a class="layout-switch" data-layout-switch href="mobile.html"></a>
+        </div>
+    </div>
+
+    <!-- One test, close up -->
+    <div id="detailScreen" class="screen">
+        <div class="results-container">
+            <button type="button" id="detailBack" class="secondary detail-back">‹ Back to history</button>
+            <h1 id="detailTitle">Test</h1>
+            <div class="compare-date" id="detailSubtitle" style="text-align:center;font-size:1rem;margin-bottom:1.5rem"></div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">Critical Force</div>
+                    <div class="metric-value" id="detailCf">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">CF:Bodyweight Ratio</div>
+                    <div class="metric-value" id="detailRatio">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">80% CF (ARC Zone)</div>
+                    <div class="metric-value" id="detailArc">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Threshold Zone</div>
+                    <div class="metric-value" id="detailThreshold">--</div>
+                </div>
+            </div>
+
+            <div class="overlay-section">
+                <h2>Every reading</h2>
+                <div class="trace-legend">
+                    <span class="trace-key line">Force</span>
+                    <span class="trace-key window">Averaging window (2–6s)</span>
+                    <span class="trace-key unreliable">Too few readings</span>
+                    <span class="trace-key cf">Critical force</span>
+                </div>
+                <div id="detailTrace" class="trace-container"></div>
+                <p class="trace-note" id="detailNote" style="display:none"></p>
+            </div>
+
+            <div class="overlay-section">
+                <h2>Rep by rep</h2>
+                <div id="detailReps" class="rep-list"></div>
+            </div>
         </div>
     </div>
 

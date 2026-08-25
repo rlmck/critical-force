@@ -17,8 +17,9 @@ import {
   stateMachine, scaleIntegration, audio, setView
 } from '../engine.js';
 import { PALETTE, OverlayChart, computeResults } from '../analysis.js';
-import { buildExport, filenameFor, toDataset, download, titleCase } from '../results.js';
+import { buildExport, filenameFor, toDataset, traceFor, download, titleCase } from '../results.js';
 import { store, saveTest, listTests, message } from '../store.js';
+import { TraceChart } from '../trace.js';
 
 /* What the setup form is currently describing. */
 export const appData = {
@@ -30,6 +31,7 @@ export const appData = {
 };
 
 const overlayChart = new OverlayChart();
+const traceChart = new TraceChart();
 
 /* Optional by design -- see the note above. */
 const el = id => document.getElementById(id);
@@ -37,7 +39,12 @@ const el = id => document.getElementById(id);
 export class BaseView {
     constructor() {
         this.currentScreen = 'setup';
+        this.datasets = [];
+        this.fileDatasets = [];
+        this.selected = [];
+        this.filters = {};
         this.setupEventListeners();
+        this.bindFilters();
     }
 
     /* Bind only what this layout actually has. Desktop has a drag-and
@@ -520,13 +527,18 @@ export class BaseView {
     if (!list) return;
     if (!store.available) {
       this.datasets = (this.fileDatasets || []).slice();
-      return this.renderHistory('No database configured - drop result files here to compare them.');
+      /* Say which kind of nowhere this is. "No database configured" is
+         a different problem from "the database is there but refuses
+         everyone", and only one of them is something you can fix. */
+      return this.renderHistory(store.fatal
+        ? `${message(store.fatal)} Drop result files here to read them in the meantime.`
+        : 'No database configured — drop result files here to compare them.');
     }
     this.renderHistoryStatus('Loading...');
     try {
       const fromDb = await listTests();
       this.datasets = fromDb.concat(this.fileDatasets || []);
-      this.renderHistory(fromDb.length ? null : 'No tests saved yet.');
+      this.renderHistory(fromDb.length ? null : 'No tests saved yet. Drop old result files here to bring them in.');
     } catch (err) {
       console.error('Failed to load history:', err);
       this.datasets = (this.fileDatasets || []).slice();
@@ -538,6 +550,7 @@ export class BaseView {
     if (!fileList || fileList.length === 0) return;
     this.fileDatasets = this.fileDatasets || [];
     const errors = [];
+    let added = 0;
     for (const file of fileList) {
       try {
         const json = JSON.parse(await file.text());
@@ -545,12 +558,130 @@ export class BaseView {
         ds.id = 'file:' + file.name;
         const at = this.fileDatasets.findIndex(d => d.id === ds.id);
         if (at >= 0) this.fileDatasets[at] = ds; else this.fileDatasets.push(ds);
+        added++;
       } catch (err) {
         errors.push(file.name + ': ' + err.message);
       }
     }
     await this.loadHistory();
-    if (errors.length) this.toast(errors.join(' - '), true);
+    if (errors.length) this.toast(errors.join(' · '), true);
+    else if (added) this.toast(`Read ${added} file${added > 1 ? 's' : ''}. Use "Import to database" to keep ${added > 1 ? 'them' : 'it'}.`);
+  }
+
+  /* -- importing old tests -----------------------------------
+     A file dropped on the page is readable straight away but lives
+     only until the tab closes. This is what makes it permanent.
+
+     The document id is built from the test's own timestamp, so
+     importing the same file twice corrects the record rather than
+     doubling it, and a half-finished import can simply be run again. */
+  async importFiles() {
+    const pending = (this.fileDatasets || []).filter(d => !d.imported);
+    if (!pending.length) return this.toast('Nothing to import — drop result files here first.');
+    if (!store.available) return this.toast('No database configured, so there is nowhere to import to.', true);
+
+    const btn = el('importBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Importing…'; }
+
+    let ok = 0;
+    const failed = [];
+    for (const ds of pending) {
+      try {
+        await saveTest(ds.raw);
+        ds.imported = true;
+        ok++;
+      } catch (err) {
+        console.error('Import failed for', ds.id, err);
+        failed.push(`${ds.name} ${ds.hand}: ${message(err)}`);
+      }
+    }
+
+    if (btn) { btn.disabled = false; btn.textContent = 'Import to database'; }
+
+    /* Imported tests now exist twice in the list — once as a file and
+       once out of the database. Drop the file copies and re-read. */
+    if (ok) {
+      this.fileDatasets = (this.fileDatasets || []).filter(d => !d.imported);
+      this.selected = [];
+      await this.loadHistory();
+    }
+
+    if (ok && !failed.length) this.toast(`Imported ${ok} test${ok > 1 ? 's' : ''}.`);
+    else if (ok) this.toast(`Imported ${ok}, failed ${failed.length}: ${failed[0]}`, true);
+    else this.toast(`Import failed: ${failed[0]}`, true);
+  }
+
+  /* -- filters -----------------------------------------------
+     Options come from the tests actually present rather than a fixed
+     vocabulary: the grips on record are the authority, not the two
+     this app happens to offer today. */
+  filtered() {
+    const f = this.filters || {};
+    const now = Date.now();
+    return (this.datasets || []).filter(ds => {
+      if (f.athlete && ds.name !== f.athlete) return false;
+      if (f.grip && ds.grip !== f.grip) return false;
+      if (f.hand && ds.hand !== f.hand) return false;
+      if (f.days) {
+        if (!ds.date) return false;
+        if (now - ds.date.getTime() > f.days * 86400000) return false;
+      }
+      return true;
+    });
+  }
+
+  refreshFilterOptions() {
+    const distinct = key => [...new Set((this.datasets || []).map(d => d[key]).filter(Boolean))].sort();
+    const fill = (id, values, current) => {
+      const sel = el(id);
+      if (!sel) return;
+      sel.replaceChildren();
+      const any = document.createElement('option');
+      any.value = '';
+      any.textContent = sel.dataset.anyLabel || 'All';
+      sel.appendChild(any);
+      values.forEach(v => {
+        const o = document.createElement('option');
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+      });
+      /* Keep a chosen value that is still on offer; drop one that is
+         not, so a filter can never hide everything with no way back. */
+      sel.value = values.includes(current) ? current : '';
+    };
+    this.filters = this.filters || {};
+    fill('filterAthlete', distinct('name'), this.filters.athlete);
+    fill('filterGrip',    distinct('grip'), this.filters.grip);
+    fill('filterHand',    distinct('hand'), this.filters.hand);
+    this.filters.athlete = el('filterAthlete') ? el('filterAthlete').value : '';
+    this.filters.grip    = el('filterGrip')    ? el('filterGrip').value    : '';
+    this.filters.hand    = el('filterHand')    ? el('filterHand').value    : '';
+  }
+
+  bindFilters() {
+    this.filters = this.filters || {};
+    ['filterAthlete', 'filterGrip', 'filterHand'].forEach(id => {
+      this.on(id, 'change', () => {
+        this.filters.athlete = el('filterAthlete') ? el('filterAthlete').value : '';
+        this.filters.grip    = el('filterGrip')    ? el('filterGrip').value    : '';
+        this.filters.hand    = el('filterHand')    ? el('filterHand').value    : '';
+        this.renderHistory();
+      });
+    });
+    this.on('filterDate', 'change', e => {
+      this.filters.days = e.target.value ? Number(e.target.value) : null;
+      this.renderHistory();
+    });
+    this.on('filterClear', 'click', () => {
+      this.filters = {};
+      ['filterAthlete', 'filterGrip', 'filterHand', 'filterDate'].forEach(id => {
+        const n = el(id); if (n) n.value = '';
+      });
+      this.renderHistory();
+    });
+    this.on('importBtn', 'click', () => this.importFiles());
+    this.on('detailBack', 'click', () => this.showScreen('history'));
   }
 
   renderHistoryStatus(text) {
@@ -581,25 +712,56 @@ export class BaseView {
     const list = el('historyList');
     if (!list) return;
     this.datasets = this.datasets || [];
-    if (status && !this.datasets.length) return this.renderHistoryStatus(status);
+    if (status && !this.datasets.length) {
+      this.refreshFilterOptions();
+      this.updateFilterSummary(0, 0);
+      return this.renderHistoryStatus(status);
+    }
+
+    this.refreshFilterOptions();
+    const shown = this.filtered();
+    this.updateFilterSummary(shown.length, this.datasets.length);
 
     this.selected = this.selected || [];
-    /* Drop selections whose test is no longer in the list. */
-    this.selected = this.selected.filter(id => this.datasets.some(d => d.id === id));
+    /* A selection only survives while its test is still on screen —
+       otherwise the chart plots a line the list no longer shows. */
+    this.selected = this.selected.filter(id => shown.some(d => d.id === id));
     /* Nothing chosen yet: show the most recent couple rather than an
        empty chart and a prompt. */
-    if (!this.selected.length && this.datasets.length) {
-      this.selected = this.datasets.slice(0, Math.min(2, this.datasets.length)).map(d => d.id);
+    if (!this.selected.length && shown.length) {
+      this.selected = shown.slice(0, Math.min(2, shown.length)).map(d => d.id);
+    }
+
+    const importable = (this.fileDatasets || []).length;
+    const importBtn = el('importBtn');
+    if (importBtn) {
+      importBtn.style.display = importable ? '' : 'none';
+      importBtn.textContent = `Import ${importable} file${importable > 1 ? 's' : ''} to database`;
     }
 
     list.replaceChildren();
-    this.datasets.forEach(ds => {
+    if (!shown.length) {
+      const p = document.createElement('div');
+      p.className = 'history-empty';
+      p.textContent = 'No tests match these filters.';
+      list.appendChild(p);
+      return this.renderHistoryChart();
+    }
+
+    shown.forEach(ds => {
       const idx = this.selected.indexOf(ds.id);
-      const row = document.createElement('button');
-      row.type = 'button';
+      const row = document.createElement('div');
       row.className = 'history-row' + (idx >= 0 ? ' selected' : '');
       if (idx >= 0) row.style.setProperty('--dot', PALETTE[idx % PALETTE.length]);
-      row.addEventListener('click', () => this.toggleSelected(ds.id));
+
+      /* The row body toggles the overlay; the chevron opens the test.
+         Two jobs, two targets — a row that did both on one tap would
+         make comparing and inspecting the same gesture. */
+      const pick = document.createElement('button');
+      pick.type = 'button';
+      pick.className = 'history-pick';
+      pick.setAttribute('aria-pressed', idx >= 0 ? 'true' : 'false');
+      pick.addEventListener('click', () => this.toggleSelected(ds.id));
 
       const dot = document.createElement('span');
       dot.className = 'history-dot';
@@ -614,7 +776,7 @@ export class BaseView {
       when.textContent = [
         ds.date ? ds.date.toLocaleDateString() : '—',
         ds.grip,
-        ds.source === 'file' ? 'from file' : null
+        ds.source === 'file' ? 'not imported' : null
       ].filter(Boolean).join(' · ');
       main.append(who, when);
 
@@ -626,11 +788,29 @@ export class BaseView {
       ratio.className = 'history-ratio';
       ratio.textContent = ds.cfRatio ? ds.cfRatio.toFixed(2) + 'x' : '—';
 
-      row.append(dot, main, cf, ratio);
+      pick.append(dot, main, cf, ratio);
+
+      const open = document.createElement('button');
+      open.type = 'button';
+      open.className = 'history-open';
+      open.textContent = '›';
+      open.setAttribute('aria-label', `Open ${ds.name} ${ds.hand} hand in detail`);
+      open.addEventListener('click', () => this.showDetail(ds.id));
+
+      row.append(pick, open);
       list.appendChild(row);
     });
 
     this.renderHistoryChart();
+  }
+
+  updateFilterSummary(shown, total) {
+    const n = el('filterCount');
+    if (n) n.textContent = shown === total ? `${total} test${total === 1 ? '' : 's'}` : `${shown} of ${total} tests`;
+    const clear = el('filterClear');
+    const f = this.filters || {};
+    const active = !!(f.athlete || f.grip || f.hand || f.days);
+    if (clear) clear.style.display = active ? '' : 'none';
   }
 
   renderHistoryChart() {
@@ -649,5 +829,86 @@ export class BaseView {
       const rs = el('historyRatioSection');
       if (rs) rs.style.display = hasRatio ? 'block' : 'none';
     }
+  }
+
+  /* -- one test, close up ------------------------------------
+     The history screen compares tests; this explains one. The chart
+     is the raw trace with each rep's averaging window drawn on top of
+     it, so the headline number stops being something you take on
+     trust and becomes something you can see being measured. */
+  showDetail(id) {
+    const ds = (this.datasets || []).find(d => d.id === id);
+    if (!ds) return;
+    this.detail = ds;
+    this.showScreen('detail');
+
+    const set = (elId, text) => { const n = el(elId); if (n) n.textContent = text; };
+    set('detailTitle', `${ds.name} · ${ds.hand} hand`);
+    set('detailSubtitle', [
+      ds.date ? ds.date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date unknown',
+      ds.grip,
+      ds.bodyweight ? `${ds.bodyweight} kg bodyweight` : null
+    ].filter(Boolean).join(' · '));
+    set('detailCf', `${ds.cf.toFixed(1)} kg`);
+    set('detailRatio', ds.cfRatio ? `${ds.cfRatio.toFixed(2)}x` : '—');
+    set('detailArc', ds.arcZone != null ? `${ds.arcZone.toFixed(1)} kg` : '—');
+    set('detailThreshold', ds.thresholdZone ||
+      (ds.arcZone != null ? `${ds.arcZone.toFixed(1)} - ${ds.cf.toFixed(1)} kg` : '—'));
+
+    const trace = traceFor(ds.raw || {});
+    const kind = traceChart.render(el('detailTrace'), trace, {
+      cf: ds.cf, name: ds.name, hand: ds.hand, grip: ds.grip
+    });
+
+    /* Say which of the three kinds of record this is, rather than
+       leaving a sparser chart looking like a worse test. */
+    const note = el('detailNote');
+    if (note) {
+      note.textContent =
+        kind === 'session' ? 'Every reading of the whole test, rests included. The orange bars are the 2–6s slice of each hang that the average is taken from.'
+      : kind === 'reps'    ? 'This export kept each hang’s readings but nothing from the rests, so the reps are laid out in order at their nominal spacing — exact in force, approximate in time.'
+      :                      'Recorded before the app kept raw readings.';
+      note.style.display = '';
+    }
+
+    this.renderDetailReps(ds);
+  }
+
+  renderDetailReps(ds) {
+    const host = el('detailReps');
+    if (!host) return;
+    host.replaceChildren();
+
+    const reps = ds.repData || [];
+    const max = Math.max(...reps.map(r => r.average || 0), 1);
+    const cfReps = new Set(CONFIG.CF_REPS.map(i => i + 1));
+
+    reps.forEach((r, i) => {
+      const n = r.rep != null ? r.rep : i + 1;
+      const row = document.createElement('div');
+      row.className = 'rep-row'
+        + (cfReps.has(n) ? ' cf-rep' : '')
+        + (r.unreliable ? ' unreliable' : '');
+
+      const label = document.createElement('span');
+      label.className = 'rep-n';
+      label.textContent = n;
+
+      const track = document.createElement('span');
+      track.className = 'rep-track';
+      const fill = document.createElement('span');
+      fill.className = 'rep-fill';
+      /* A rep that averaged zero is missing data, not a rep at zero
+         force — draw nothing rather than a bar on the floor. */
+      fill.style.width = r.average > 0 ? `${(r.average / max) * 100}%` : '0';
+      track.appendChild(fill);
+
+      const val = document.createElement('span');
+      val.className = 'rep-val';
+      val.textContent = r.average > 0 ? `${r.average.toFixed(1)} kg` : 'no data';
+
+      row.append(label, track, val);
+      host.appendChild(row);
+    });
   }
 }

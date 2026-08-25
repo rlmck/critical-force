@@ -5,6 +5,11 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Working directory for one-off scripts and rendered previews. Those
+# previews embed real athletes' force data, which is the same reason
+# test exports are excluded below.
+.scratch/
+
 # firebase deploy artifacts
 .firebase/
 

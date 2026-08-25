@@ -120,7 +120,11 @@ const GRIP_TOKENS = {
   half_crimp: 'Half Crimp', halfcrimp: 'Half Crimp', half: 'Half Crimp',
   three_finger_drag: '3 Finger Drag', threefingerdrag: '3 Finger Drag',
   '3_finger_drag': '3 Finger Drag', '3f_drag': '3 Finger Drag', drag: '3 Finger Drag',
-  tfd: '3 Finger Drag', open_hand: 'Open Hand', full_crimp: 'Full Crimp'
+  tfd: '3 Finger Drag', open_hand: 'Open Hand', full_crimp: 'Full Crimp',
+  /* `ross_right_hand_drag` is name-hand-"hand"-grip: the word "hand" was
+     part of the label, not the side. The regex takes `right` as the hand
+     and leaves `hand_drag` behind, so it has to resolve to a grip. */
+  hand_drag: '3 Finger Drag', hand_half_crimp: 'Half Crimp'
 };
 
 export function fromFilename(filename) {
@@ -180,7 +184,11 @@ export function toDataset(json, source, filename) {
 
   return {
     id: json.id || null,
-    name: titleCase(name),
+    /* A name the file carries was typed by a person and is kept as
+       typed — title-casing it turns TJ into Tj. Only a name recovered
+       from a filename needs casing, because a filename slug is
+       lowercase by construction. */
+    name: json.name ? String(json.name).trim() : titleCase(name),
     hand: titleCase(hand),
     grip: json.gripLabel || (json.grip ? titleCase(json.grip) : (meta.grip || '—')),
     date: date && !isNaN(date.getTime()) ? date : null,
@@ -191,8 +199,91 @@ export function toDataset(json, source, filename) {
     thresholdZone: json.thresholdZone,
     repData: json.allReps,
     unreliableReps: json.unreliableReps || [],
-    source: source || 'db'
+    source: source || 'db',
+    /* The document as stored, kept so the detail view can draw the raw
+       trace without a second read. Never written back — saveTest takes
+       the export, not a dataset. */
+    raw: json
   };
+}
+
+/* ── the trace ──────────────────────────────────────────────
+   What the load cell actually saw, laid on one timeline so it can be
+   drawn as a line rather than a row of bars.
+
+   Three generations of export are in circulation and they do not carry
+   the same thing. Rather than pretend otherwise, this reports which
+   one it found so the chart can say so:
+
+     'session' — the whole test, rests included, timestamped from the
+                 start. Draws exactly as it happened, dropping to zero
+                 between reps.
+     'reps'    — each hang's own readings, but nothing from the rests.
+                 Laid out on a nominal timeline built from the
+                 protocol, so the reps are in the right order and the
+                 right length, and the gaps between them are blank
+                 because nothing was recorded there. Approximate in x,
+                 exact in y.
+     'none'    — the earliest exports counted their readings instead of
+                 keeping them. There is no curve to draw and inventing
+                 one would be a lie; the caller shows bars instead.
+   ══════════════════════════════════════════════════════════ */
+export function traceFor(json) {
+  const p = json.protocol || {};
+  const hangMs   = (p.hangDuration != null ? p.hangDuration : 7) * 1000;
+  const restMs   = (p.restDuration != null ? p.restDuration : 3) * 1000;
+  const winStart = p.windowStartMs != null ? p.windowStartMs : 2000;
+  const winEnd   = p.windowEndMs   != null ? p.windowEndMs   : 6000;
+  const reps     = Array.isArray(json.allReps) ? json.allReps : [];
+
+  const bar = (rep, i, hangStart) => ({
+    rep: rep.rep != null ? rep.rep : i + 1,
+    average: rep.average,
+    unreliable: !!rep.unreliable,
+    from: hangStart + winStart,
+    to:   hangStart + winEnd
+  });
+
+  /* ── the whole session ─────────────────────────────────── */
+  if (Array.isArray(json.allReadings) && json.allReadings.length) {
+    const points = json.allReadings
+      .filter(r => typeof r.t === 'number' && typeof r.weight === 'number')
+      .map(r => ({ t: r.t, f: r.weight }));
+
+    /* Where each hang began, in session time. The per-rep readings are
+       stamped from the start of their own hang and the session list
+       stamps the same readings from the start of the test, so the
+       difference between the two is the offset — exact, rather than
+       assuming the protocol ran to the millisecond. */
+    const bars = [];
+    reps.forEach((rep, i) => {
+      const n = rep.rep != null ? rep.rep : i + 1;
+      const firstAbs = json.allReadings.find(r => r.rep === n && r.phase === 'HANGING');
+      const firstRel = Array.isArray(rep.rawReadings) ? rep.rawReadings[0] : null;
+      if (!firstAbs || !firstRel) return;
+      bars.push(bar(rep, i, firstAbs.t - firstRel.t));
+    });
+
+    return { kind: 'session', segments: [{ points }], bars, winStart, winEnd };
+  }
+
+  /* ── hangs only ────────────────────────────────────────── */
+  const hasRepTraces = reps.some(r => Array.isArray(r.rawReadings) && r.rawReadings.length);
+  if (hasRepTraces) {
+    const segments = [], bars = [];
+    reps.forEach((rep, i) => {
+      const base = i * (hangMs + restMs);
+      const raw = Array.isArray(rep.rawReadings) ? rep.rawReadings : [];
+      if (raw.length) {
+        segments.push({ points: raw.map(pt => ({ t: base + pt.t, f: pt.force })) });
+      }
+      bars.push(bar(rep, i, base));
+    });
+    return { kind: 'reps', segments, bars, winStart, winEnd };
+  }
+
+  /* ── nothing kept ──────────────────────────────────────── */
+  return { kind: 'none', segments: [], bars: [], winStart, winEnd };
 }
 
 /* ── the download ───────────────────────────────────────────
