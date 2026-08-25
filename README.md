@@ -106,30 +106,55 @@ of its container and redrawn when that changes. A chart you scroll
 sideways has no shape, and the shape of the decay is the only reason
 to draw it.
 
-**Loudest to quietest: measurement, answer, working.** The orange
-window marks are the measurement and carry the most ink. The red
-dashed line is the critical force. The trace is deliberately dim — it
-is the working behind the number, and when it was the brightest thing
-on the card the noise was shouting down the result.
+**Loudest to quietest: measurement, answer, working.** Measured on the
+chart ground: window marks 8.7:1, critical force 6.1:1, trace 3.7:1.
+The trace is deliberately dim — it is the working behind the number,
+and when it was the brightest thing on the card the noise was shouting
+down the result. A flagged window is the same orange at 55% rather
+than a second colour, so "less certain" reads as less ink without
+dropping below the noise it is a measurement of.
 
 **One y-scale across the whole screen.** Stacked charts imply they can
 be compared, and scaling each to its own maximum destroys that: a 10 kg
 critical force and a 25 kg one would sit at the same height on two
 cards an inch apart.
 
-**Every reading is a dot where they are far enough apart to count.**
-The WH-C06 broadcasts roughly five times a second and about 38% of
-those packets never arrive, so a 7-second hang holds between 4 and 26
-readings rather than the ~34 the cadence implies. A hang with fewer
-than six readings gets its dots and no line — joining three points
-draws a slash from the floor to the peak and back, which reads as a
-rendering fault rather than as a rep the radio missed. If you want a
+**Every reading is a dot, but only where a dot says something.** The
+WH-C06 broadcasts roughly five times a second and about 38% of those
+packets never arrive, so a 7-second hang holds between 4 and 26
+readings rather than the ~34 the cadence implies. On a rep dense
+enough to draw as a line every reading is already a vertex of it, and
+a dot on each one only beads the trace and pushes the noise back above
+the measurement. So the dots appear on the sparse reps, where they are
+the difference between "a rep" and "three readings". If you want a
 denser trace the fix is at the radio: keep the receiving device close
 to the scale and clear of your body.
+
+**Each rep is clipped to its plateau.** The readings either side of a
+hang are the athlete taking hold and letting go — a 50 kg swing
+between two samples that says nothing about critical force. Drawn, it
+is a near-vertical slash from the floor to the peak, and it reads as a
+rendering fault rather than as data.
 
 A rep that averaged zero recorded nothing usable. That is missing
 data, not a rep at zero force, so it is marked on the floor rather
 than silently skipped.
+
+**kg or × bodyweight.** The toggle in the header changes what the
+shared scale is measured in. It is there because comparing athletes of
+different mass is the comparison worth making — *not* because it wins
+back plot space. Measured across these ten tests, rep 1 is **1.8× to
+5.2× the critical force within a single test**, and spans 2.3× across
+athletes in kilograms against 2.1× as a share of bodyweight. The
+vertical range is set by the opening rep either way. That large
+dynamic range is what a critical-force test *is*; the taller plot is
+the honest mitigation, not a change of units.
+
+**Below 420px the chart draws the window marks alone.** Twenty-four
+reps of trace at 11px each is a picket fence, and the first thing lost
+in it is the tail — the three reps the answer comes from. The marks
+carry the same numbers legibly at that width. The legend drops the
+keys for marks that are not being drawn.
 
 **Three generations of export are in circulation and they do not carry
 the same thing.** All three draw the same chart on the same axes — the
