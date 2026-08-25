@@ -23,11 +23,15 @@ rules_version = '2';
    nothing here should be read as if it did.
 
    **Do not put anything in this project that would matter if a
-   stranger read it.** Everything in `tests` is world-readable.
+   stranger read it, or that you would not want a stranger to delete.**
+   Everything in `tests` is world-readable, world-appendable and — now
+   that the app has a delete button — world-deletable.
 
-   Deletes are refused outright. The worst a passer-by can do is add a
-   row; they cannot remove a real test. The app has no delete button,
-   so nothing legitimate needs it — remove a bad test from the console.
+   Deleting was refused until a bad test needed removing and there was
+   no way to do it without the console. Nothing here can tell one
+   visitor from another, so a rule that lets the owner delete lets
+   anyone delete. The protection that remains is a two-step confirm in
+   the UI, which stops an accident and not an intent.
 
    This project shares nothing with the Coach app — separate project,
    separate database. Tests reach Coach as a file somebody uploads.
@@ -60,7 +64,10 @@ service cloud.firestore {
         && request.resource.data.allReps.size() > 0
         && request.resource.data.allReps.size() <= 100;
 
-      allow delete: if false;
+      /* A test that only exists as a file cannot be deleted here at
+         all, so this only ever removes something that was imported or
+         saved. See the note above about who "anyone" is. */
+      allow delete: if true;
     }
 
     /* Anything not named above is closed. */

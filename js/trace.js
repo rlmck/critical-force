@@ -28,9 +28,14 @@ const el = (t, attrs) => {
   return n;
 };
 
-/* Room for the axis labels. The left margin is the widest y-label plus
-   its tick, measured rather than guessed at, further down. */
-const VW = 1000, VH = 460, MT = 18, MR = 20, MB = 46;
+/* Height is fixed; width is not. A 24-rep test squeezed into one
+   screen gives each rep about 40px, and a rep holds a dozen readings —
+   so the shape of the pull collapses into a smear and every rep looks
+   like a vertical smudge. The chart is drawn at a width that gives
+   each rep room to be read and scrolls sideways instead. */
+const VH = 460, MT = 18, MR = 20, MB = 46;
+const PX_PER_REP = 108;
+const MIN_VW = 900;
 
 export class TraceChart {
   /**
@@ -67,12 +72,19 @@ export class TraceChart {
        clips "100" and nobody notices until the numbers get big. */
     const ML = 26 + String(yTop).length * 11;
 
+    const reps = Math.max(trace.bars.length, 1);
+    const VW = Math.max(MIN_VW, ML + MR + reps * PX_PER_REP);
+
     const sx = t => ML + (t / tMax) * (VW - ML - MR);
     const sy = f => VH - MB - (f / yTop) * (VH - MT - MB);
 
     const svg = el('svg', {
       viewBox: `0 0 ${VW} ${VH}`,
-      preserveAspectRatio: 'xMidYMid meet',
+      /* Fixed aspect, and the container scrolls. Letting it shrink to
+         fit the screen would undo the width it was just given. */
+      width: VW,
+      height: VH,
+      preserveAspectRatio: 'xMinYMid meet',
       class: 'trace-svg',
       role: 'img',
       'aria-label': `Force over time for ${opts.name || 'this test'}, ${opts.hand || ''} hand`
@@ -89,14 +101,32 @@ export class TraceChart {
       svg.appendChild(label);
     }
 
-    /* ── the trace ───────────────────────────────────────── */
+    /* ── the trace ───────────────────────────────────────────
+       Line first, then a dot on every reading. The dots are the point:
+       this scale broadcasts about five times a second and loses some
+       of those to the air, so the readings are countable and worth
+       being able to count. Without them a sparse rep and a dense one
+       draw the same shape. */
     trace.segments.forEach(seg => {
-      if (seg.points.length < 2) return;
-      svg.appendChild(el('polyline', {
-        points: seg.points.map(p => `${sx(p.t).toFixed(1)},${sy(p.f).toFixed(1)}`).join(' '),
-        class: 'trace-line'
-      }));
+      if (seg.points.length >= 2) {
+        svg.appendChild(el('polyline', {
+          points: seg.points.map(p => `${sx(p.t).toFixed(1)},${sy(p.f).toFixed(1)}`).join(' '),
+          class: 'trace-line'
+        }));
+      }
     });
+
+    /* Only when they would not merge into a bar of ink. */
+    const spacing = (VW - ML - MR) / Math.max(pts.length, 1);
+    if (spacing > 1.5) {
+      const dots = el('g', { class: 'trace-dots' });
+      trace.segments.forEach(seg => seg.points.forEach(p => {
+        dots.appendChild(el('circle', {
+          cx: sx(p.t).toFixed(1), cy: sy(p.f).toFixed(1), r: spacing > 4 ? 2 : 1.4
+        }));
+      }));
+      svg.appendChild(dots);
+    }
 
     /* ── the averaging windows ───────────────────────────── */
     trace.bars.forEach(b => {

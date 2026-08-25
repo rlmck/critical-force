@@ -90,11 +90,30 @@ half-finished import can simply be run again.
 
 ### The detail view
 
-One test, drawn as it happened: every reading as a line, with each
-rep's averaging window laid on top of it at that rep's average, across
-the 2–6s slice that counts. The point is the relationship — you can
-watch the average ignore the grab and the drop-off rather than taking
-the headline on trust. Critical force runs across the whole chart.
+One test, drawn as it happened: every reading as a point on a line,
+with each rep's averaging window laid on top at that rep's average,
+across the 2-6s slice that counts. The point is the relationship - you
+can watch the average ignore the grab and the drop-off rather than
+taking the headline on trust. Critical force runs across the whole
+chart.
+
+**The chart is drawn wide and scrolls sideways.** Each rep gets about
+108px. Squeezed onto one screen a 24-rep test gives each rep 40px, and
+a rep holds a dozen readings, so the shape of the pull collapses into
+a vertical smudge. Width is the difference between seeing the readings
+and seeing a smear.
+
+**Every reading is a dot.** The WH-C06 broadcasts roughly five times a
+second and about 38% of those packets never arrive - so a 7-second
+hang holds somewhere between 4 and 26 readings rather than the ~34 the
+cadence implies. The dots make that countable: a gap between them is a
+packet that was sent and not received, not a steady hand. If you want
+a denser trace the fix is at the radio, not the chart - keep the
+laptop or phone close to the scale and clear of the body.
+
+The line is drawn with mitred joins on purpose. The noise in a hang is
+the signal; rounding the corners sands the spikes off and draws a
+smooth curve nobody measured.
 
 **Three generations of export are in circulation and they do not carry
 the same thing**, so `traceFor()` in `js/results.js` reports which it
@@ -104,8 +123,19 @@ worse test:
 | kind | what the file kept | what you see |
 |---|---|---|
 | `session` | the whole test, rests included | the true curve, dropping to the floor between reps |
-| `reps` | each hang, nothing between them | reps in order at nominal spacing — exact in force, approximate in time |
+| `reps` | each hang, nothing between them | reps in order at nominal spacing - exact in force, approximate in time |
 | `none` | a *count* of readings, not the readings | no curve, said plainly, and the per-rep bars instead |
+
+### Deleting a test
+
+At the foot of the detail view, two taps deep: the first press arms it
+and says what it is about to do, the second does it, and it disarms
+itself after five seconds. A test takes four minutes to record and
+cannot be repeated, so a stray press and an extra press do not cost
+the same.
+
+A test that is only a dropped file is removed from the session and the
+file on disk is untouched.
 
 ## The database
 

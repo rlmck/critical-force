@@ -18,7 +18,7 @@ import {
 } from '../engine.js';
 import { PALETTE, OverlayChart, computeResults } from '../analysis.js';
 import { buildExport, filenameFor, toDataset, traceFor, documentFor, download, titleCase } from '../results.js';
-import { store, saveTest, listTests, message } from '../store.js';
+import { store, saveTest, listTests, deleteTest, message } from '../store.js';
 import { TraceChart } from '../trace.js';
 
 /* What the setup form is currently describing. */
@@ -45,6 +45,7 @@ export class BaseView {
         this.filters = {};
         this.setupEventListeners();
         this.bindFilters();
+        this.bindDelete();
     }
 
     /* Bind only what this layout actually has. Desktop has a drag-and
@@ -880,6 +881,12 @@ export class BaseView {
     if (!ds) return;
     this.detail = ds;
     this.detailFrom = id === 'live' ? 'results' : 'history';
+    this.disarmDelete();
+
+    /* A test that has only just finished is not in the database, so
+       there is nothing to delete — Test Again is the way out of it. */
+    const del = el('detailDelete');
+    if (del) del.style.display = ds.source === 'live' ? 'none' : '';
     this.showScreen('detail');
     const back = el('detailBack');
     if (back) back.textContent = this.detailFrom === 'results' ? '‹ Back to result' : '‹ Back to history';
@@ -914,6 +921,64 @@ export class BaseView {
     }
 
     this.renderDetailReps(ds);
+  }
+
+  /* -- deleting -----------------------------------------------
+     Two steps, and the second one says what it is about to remove.
+     A single-tap delete in a list is one stray thumb away from losing
+     a test that took four minutes to record and cannot be repeated. */
+  bindDelete() {
+    this.on('detailDelete', 'click', async () => {
+      const btn = el('detailDelete');
+      const ds = this.detail;
+      if (!btn || !ds) return;
+
+      if (!btn.dataset.armed) {
+        btn.dataset.armed = '1';
+        btn.textContent = 'Really delete?';
+        btn.classList.add('armed');
+        /* Disarm on its own, so a half-pressed delete does not sit
+           there waiting to catch the next tap. */
+        clearTimeout(this._armTimer);
+        this._armTimer = setTimeout(() => this.disarmDelete(), 5000);
+        return;
+      }
+
+      this.disarmDelete();
+      if (ds.source === 'file') {
+        /* Never written anywhere — just drop it from this session. */
+        this.fileDatasets = (this.fileDatasets || []).filter(d => d.id !== ds.id);
+        this.showScreen('history');
+        await this.loadHistory();
+        return this.toast(`Removed ${ds.name} ${ds.hand} from this session. The file itself is untouched.`);
+      }
+
+      btn.disabled = true;
+      btn.textContent = 'Deleting…';
+      try {
+        await deleteTest(ds.id);
+        this.datasets = (this.datasets || []).filter(d => d.id !== ds.id);
+        this.selected = (this.selected || []).filter(id => id !== ds.id);
+        this.showScreen('history');
+        await this.loadHistory();
+        this.toast(`Deleted ${ds.name} · ${ds.hand} hand, ${ds.date ? ds.date.toLocaleDateString() : 'undated'}.`);
+      } catch (err) {
+        console.error('Delete failed:', err);
+        this.toast(`Could not delete that test: ${message(err)}`, true);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Delete this test';
+      }
+    });
+  }
+
+  disarmDelete() {
+    clearTimeout(this._armTimer);
+    const btn = el('detailDelete');
+    if (!btn) return;
+    delete btn.dataset.armed;
+    btn.classList.remove('armed');
+    btn.textContent = 'Delete this test';
   }
 
   renderDetailReps(ds) {
