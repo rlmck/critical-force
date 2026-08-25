@@ -71,6 +71,39 @@ ceiling is 80% of it. All of that is `computeResults()` in
 `js/analysis.js`, in one place, so a test on screen tonight and the
 same test read back next month cannot drift apart.
 
+## History, filtering, and reading one test
+
+The **History** screen lists every saved test, newest first, and
+filters by athlete, grip, hand and recency. The options are built from
+the tests actually present rather than a fixed list — the grips on
+record are the authority, not the two the app happens to offer today.
+Tapping a row adds it to the decay-curve overlay; the chevron opens it.
+
+**Old exports can be brought in.** Drop them on the History screen and
+they read immediately; *Import to database* makes them permanent. The
+document id comes from the test's own timestamp, so importing the same
+file twice corrects the record rather than doubling it, and a
+half-finished import can simply be run again.
+
+### The detail view
+
+One test, drawn as it happened: every reading as a line, with each
+rep's averaging window laid on top of it at that rep's average, across
+the 2–6s slice that counts. The point is the relationship — you can
+watch the average ignore the grab and the drop-off rather than taking
+the headline on trust. Critical force runs across the whole chart.
+
+**Three generations of export are in circulation and they do not carry
+the same thing**, so `traceFor()` in `js/results.js` reports which it
+found and the chart says so. A sparser record should not look like a
+worse test:
+
+| kind | what the file kept | what you see |
+|---|---|---|
+| `session` | the whole test, rests included | the true curve, dropping to the floor between reps |
+| `reps` | each hang, nothing between them | reps in order at nominal spacing — exact in force, approximate in time |
+| `none` | a *count* of readings, not the readings | no curve, said plainly, and the per-rep bars instead |
+
 ## The database
 
 Its own Firebase project, `critical-force-test`. **Nothing is shared
@@ -78,8 +111,7 @@ with [climbing-coach](https://github.com/rlmck/climbing-coach)** — separate
 project, separate database, separate rules, separate accounts.
 
 One collection, `tests`, one document per test, keyed by the test's
-own timestamp with the athlete, hand and grip, so pressing Save twice
-corrects the record rather than doubling it.
+own timestamp with the athlete, hand and grip.
 
 **One shared space, and no login.** Every test is visible to everyone
 who opens the app. The app signs itself in anonymously so the rules
@@ -100,9 +132,11 @@ one console toggle:
 
 > **Authentication → Sign-in method → Anonymous → Enable**
 
-Until that is on, saving fails with *"Anonymous sign-in is switched off
-for this Firebase project"* and results download as files. The test
-itself is unaffected.
+Until that is on, nothing saves or imports and the History screen says
+so. Files dropped on the page still read, the test itself still runs,
+and results still download. A missing sign-in method fails identically
+every time, so it is not retried after the first attempt — a dropped
+connection still is.
 
 Blank the `apiKey` in `js/config.js` and the app runs with no backend
 at all, which is the same fallback path deliberately.
@@ -146,7 +180,8 @@ history.
 | `css/desktop.css` · `css/mobile.css` | Everything that depends on how much room there is. |
 | `js/engine.js` | The protocol, the arithmetic, the scale. Knows nothing about screens. |
 | `js/analysis.js` | What the reps add up to, and the decay-curve chart. |
-| `js/results.js` | A finished test as a document and as a file. The Coach seam. |
+| `js/results.js` | A finished test as a document and as a file, and the trace normaliser. The Coach seam. |
+| `js/trace.js` | One test drawn as it happened: readings, averaging windows, critical force. |
 | `js/store.js` | Firestore: where a test goes and how it comes back. |
 | `js/layout.js` | Which of the two versions you get. |
 | `js/views/base.js` | Every behaviour both layouts share. |
