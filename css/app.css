@@ -1,3 +1,49 @@
+/* == design tokens =============================================
+   Three greys for text, two accents, one spacing scale, one type
+   scale. Everything below draws from these. Adding a tenth grey is
+   how a screen ends up looking like a debug view.
+
+   Surfaces get *lighter* as they come forward. The page is the
+   darkest thing on it. */
+:root {
+    --bg:        #121212;
+    --surface:   #1c1c1c;
+    --surface-2: #242424;
+    --line:      #2e2e2e;
+    --line-2:    #3a3a3a;
+
+    --fg:   #ededed;   /* 15.4:1 on --surface */
+    --fg-2: #a8a8a8;   /*  7.4:1 */
+    --fg-3: #8c8c8c;   /*  5.0:1 -- the dimmest text allowed */
+
+    /* Two accents and no more. Orange is always "a measurement",
+       red is always "the critical force". */
+    --measure: #f0a020;
+    --cf:      #ff5a5f;
+
+    /* 11 / 13 / 15 / 20 / 32 -- five steps, absolute, no fractions */
+    --t-xs: 11px;
+    --t-sm: 13px;
+    --t-md: 15px;
+    --t-lg: 20px;
+    --t-xl: 32px;
+
+    --s-1: 4px;  --s-2: 8px;  --s-3: 12px;
+    --s-4: 16px; --s-5: 24px; --s-6: 32px; --s-7: 48px;
+}
+
+/* Form controls do not inherit type. Without this, every button and
+   select on the page renders in Arial while the headings render in
+   the system stack — side by side, and impossible to unsee. */
+button, select, input, textarea { font: inherit; }
+
+/* Removing the outline without replacing it makes the app unusable
+   by keyboard. */
+:focus-visible {
+    outline: 2px solid var(--measure);
+    outline-offset: 2px;
+}
+
 /* == app.css -- what the app is made of. =======================
 
    Components, not layout. Every rule here holds for a 5-inch phone
@@ -18,8 +64,8 @@
 
 body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-    background: #1a1a1a;
-    color: #e0e0e0;
+    background: var(--bg);
+    color: var(--fg);
     min-height: 100vh;
 }
 
@@ -557,9 +603,10 @@ body.phase-hanging .phase-fill {
 
 /* Compare Screen */
 .compare-container {
-    background: #2a2a2a;
-    border-radius: 12px;
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    /* No slab. The cards are the objects on this screen and a panel
+       behind them only competes — especially one darker than they
+       are, which reads as a hole rather than a surface. */
+    background: transparent;
 }
 
 .upload-area {
@@ -878,291 +925,387 @@ body.phase-hanging .phase-fill {
 }
 .layout-switch:hover { color: #b0b0b0; text-decoration: underline; }
 
-/* == the trace, the filters, and one test close up ============ */
+/* == history, filters, and the trace ========================== */
+
+.toast {
+    position: fixed;
+    left: 50%;
+    bottom: var(--s-5);
+    transform: translate(-50%, 8px);
+    background: var(--surface-2);
+    color: var(--fg);
+    border: 1px solid var(--line-2);
+    border-left: 3px solid var(--measure);
+    border-radius: 8px;
+    padding: var(--s-3) var(--s-4);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+    z-index: 300;
+    max-width: min(34rem, calc(100vw - 2rem));
+    font-size: var(--t-sm);
+    line-height: 1.45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.toast.error { border-left-color: var(--cf); }
+.toast.shown { opacity: 1; transform: translate(-50%, 0); }
+
+/* -- the screen header ----------------------------------------
+   One line: what this is, how many, and the way to add more. A 40px
+   centred title on a screen with one heading is shouting at nobody. */
+.screen-head {
+    display: flex;
+    align-items: baseline;
+    gap: var(--s-3);
+    margin-bottom: var(--s-4);
+}
+.screen-head h1 {
+    font-size: var(--t-lg);
+    font-weight: 600;
+    color: var(--fg);
+    text-align: left;
+    margin: 0;
+    line-height: 1.2;
+}
+.filter-count {
+    color: var(--fg-3);
+    font-size: var(--t-sm);
+    font-variant-numeric: tabular-nums;
+}
+.head-actions { margin-left: auto; display: flex; gap: var(--s-2); }
 
 /* -- filters --------------------------------------------------
-   Options are built from the tests actually present, so this bar
-   describes the data rather than a fixed vocabulary. */
+   Options are built from the tests present, so this describes the
+   data rather than a fixed vocabulary. The selects already say "All
+   athletes"; a shouted label above each one is chrome. */
 .filter-bar {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-end;
-    gap: 0.75rem;
-    padding: 0.9rem 1rem;
-    margin-bottom: 1rem;
-    background: #232323;
-    border: 1px solid #3a3a3a;
+    align-items: center;
+    gap: var(--s-2);
+    padding: var(--s-2) var(--s-3);
+    margin-bottom: var(--s-4);
+    background: var(--surface);
+    border: 1px solid var(--line);
     border-radius: 8px;
 }
-.filter {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
-    min-width: 0;
-}
+.filter { display: flex; min-width: 0; }
 .filter > span {
-    font-size: 0.75rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: #8a8a8a;
-}
-.filter select {
-    background: #2f2f2f;
-    border: 1px solid #4a4a4a;
-    border-radius: 6px;
-    color: #e0e0e0;
-    padding: 0.5rem 0.6rem;
-    font-size: 0.95rem;
-    max-width: 100%;
-}
-.filter select:focus { outline: none; border-color: #0066cc; }
-.filter-count {
-    margin-left: auto;
-    color: #8a8a8a;
-    font-size: 0.9rem;
-    font-variant-numeric: tabular-nums;
-}
-.filter-clear {
-    width: auto;
-    margin: 0;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.9rem;
-    background: transparent;
-    border: 1px solid #4a4a4a;
-    color: #b0b0b0;
-}
-
-.import-btn {
-    background: #0066cc;
-    margin-bottom: 1rem;
-}
-
-/* -- history rows ---------------------------------------------
-   The row body picks the test for the overlay; the chevron opens
-   it. Two targets because they are two different intentions. */
-.history-row {
-    display: flex;
-    align-items: stretch;
-    gap: 0;
-    padding: 0;
+    /* Kept for screen readers; the select states its own subject. */
+    position: absolute;
+    width: 1px; height: 1px;
     overflow: hidden;
-}
-/* The narrow control: adds this test to the comparison chart. */
-.history-cmp {
-    width: auto;
-    margin: 0;
-    padding: 0 0.9rem;
-    background: transparent;
-    border: none;
-    border-right: 1px solid #3a3a3a;
-    border-radius: 0;
-    display: flex;
-    align-items: center;
-    cursor: pointer;
-}
-.history-cmp:hover { background: #2f2f2f; }
-.history-cmp[aria-pressed="true"] { background: #2b2b2b; }
-
-/* The wide control: opens the test. This is the row. */
-.history-open {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
-    align-items: center;
-    gap: 0.85rem;
-    flex: 1;
-    min-width: 0;
-    width: auto;
-    margin: 0;
-    padding: 0.85rem 1rem;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    color: inherit;
-    text-align: left;
-    font-size: inherit;
-    cursor: pointer;
-}
-.history-open:hover { background: #2f2f2f; }
-.history-go {
-    color: #6a9fd8;
-    font-size: 0.85rem;
+    clip-path: inset(50%);
     white-space: nowrap;
 }
-.history-open:hover .history-go { color: #8fc0f0; }
+.filter select {
+    appearance: none;
+    background-color: var(--surface-2);
+    background-image: linear-gradient(45deg, transparent 50%, var(--fg-3) 50%),
+                      linear-gradient(135deg, var(--fg-3) 50%, transparent 50%);
+    background-position: calc(100% - 15px) 50%, calc(100% - 10px) 50%;
+    background-size: 5px 5px, 5px 5px;
+    background-repeat: no-repeat;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    color: var(--fg-2);
+    padding: 7px 28px 7px 10px;
+    font-size: var(--t-sm);
+    max-width: 100%;
+}
+.filter select:hover { color: var(--fg); border-color: #4a4a4a; }
+.filter select:focus { outline: none; border-color: var(--measure); color: var(--fg); }
+
+.filter-clear, .ghost-btn {
+    width: auto;
+    margin: 0;
+    padding: 7px 12px;
+    font-size: var(--t-sm);
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid var(--line-2);
+    border-radius: 6px;
+    color: var(--fg-2);
+}
+.filter-clear:hover, .ghost-btn:hover:not(:disabled) {
+    background: var(--surface-2);
+    color: var(--fg);
+}
+.import-btn {
+    width: auto;
+    margin: 0;
+    padding: 7px 12px;
+    font-size: var(--t-sm);
+    font-weight: 600;
+    background: var(--measure);
+    color: #1a1200;
+    border: none;
+    border-radius: 6px;
+}
+.import-btn:hover:not(:disabled) { background: #ffb733; }
+
+/* The drop target is an affordance, not the subject of the screen.
+   The whole page accepts a drop; this is just where it is announced. */
+.upload-area {
+    border: 1px dashed var(--line-2);
+    border-radius: 8px;
+    padding: var(--s-3);
+    margin-bottom: var(--s-4);
+    text-align: center;
+    color: var(--fg-3);
+    font-size: var(--t-sm);
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s;
+}
+.upload-area:hover, .upload-area.drag-over {
+    border-color: var(--measure);
+    color: var(--fg-2);
+}
+.upload-area .upload-icon, .upload-area .upload-hint { display: none; }
+.upload-area label { cursor: pointer; display: block; }
+
+.history-list { display: flex; flex-direction: column; gap: var(--s-4); }
+.history-empty {
+    color: var(--fg-3);
+    text-align: center;
+    padding: var(--s-7) var(--s-4);
+    line-height: 1.5;
+    font-size: var(--t-md);
+}
+
+/* -- one test -------------------------------------------------
+   The card is the chart; the head is a caption for it. Surfaces get
+   lighter as they come forward, so the card sits above the page
+   rather than being a hole in it. */
+.test-card {
+    --dot: var(--line-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: var(--s-4) var(--s-5) var(--s-5);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    transition: border-color 0.15s;
+}
+.test-card.selected { border-color: var(--dot); }
+
+.test-head {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--s-3);
+}
+.test-id { min-width: 0; flex: 1; }
+.test-who {
+    font-size: var(--t-md);
+    font-weight: 600;
+    color: var(--fg);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--s-2);
+    line-height: 1.3;
+}
+.test-card.selected .test-who::before {
+    content: "";
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--dot);
+    flex: none;
+}
+.test-meta {
+    color: var(--fg-3);
+    font-size: var(--t-xs);
+    margin: 3px 0 0;
+    line-height: 1.4;
+}
+
+/* A quiet label for a record that carries less than the others. */
+.test-chip {
+    font-size: 10px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-3);
+    border: 1px solid var(--line-2);
+    border-radius: 3px;
+    padding: 1px 5px;
+    cursor: help;
+}
+
+/* The number the screen exists to produce, set like it — and tied to
+   the orange marks in its own chart by the rule beside it. */
+.test-nums {
+    text-align: right;
+    border-right: 3px solid var(--measure);
+    padding-right: var(--s-3);
+}
+.test-cf {
+    display: block;
+    font-size: var(--t-xl);
+    font-weight: 700;
+    color: var(--fg);
+    font-variant-numeric: tabular-nums;
+    line-height: 1;
+    letter-spacing: -0.02em;
+}
+.test-cf-label {
+    display: block;
+    font-size: var(--t-xs);
+    color: var(--fg-3);
+    margin-top: 3px;
+}
+
+/* Secondary to the number, and they should look it. */
+.test-actions { display: flex; gap: var(--s-2); align-items: center; }
+.test-cmp, .test-del {
+    width: auto;
+    margin: 0;
+    padding: 6px 10px;
+    font-size: var(--t-xs);
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--fg-3);
+    border-radius: 6px;
+}
+.test-cmp:hover, .test-del:hover:not(:disabled) {
+    background: var(--surface-2);
+    border-color: var(--line-2);
+    color: var(--fg);
+}
+.test-cmp[aria-pressed="true"] {
+    border-color: var(--dot);
+    color: var(--fg);
+    background: var(--surface-2);
+}
+.test-del:hover:not(:disabled) { color: var(--cf); border-color: #5a3030; }
+.test-del.armed {
+    background: var(--cf);
+    border-color: var(--cf);
+    color: #1a0000;
+    font-weight: 700;
+}
 
 /* -- the trace ------------------------------------------------
-   Wide by nature: 24 reps of raw readings. It keeps its width and
-   scrolls inside its own box rather than making the page scroll. */
+   All 24 reps at once: the shape of the decay across a whole test is
+   what is being read, and a chart you scroll sideways has no shape. */
 .trace-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    background: #202020;
-    border: 1px solid #333;
-    border-radius: 8px;
-    padding: 0.5rem;
+    /* Without this the absolutely-positioned CF label resolves against
+       the page and lands in the gutter, stacked on every other card's. */
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: var(--s-1) var(--s-2);
 }
-/* Width comes from the data — see PX_PER_REP in js/trace.js — so it
-   is set on the element, not here. Height is fixed, and the container
-   scrolls sideways. */
-.trace-svg {
-    display: block;
-    max-width: none;
-}
+.trace-svg { display: block; width: 100%; height: auto; }
 
-.trace-grid  { stroke: #333; stroke-width: 1; }
-.trace-axis  { stroke: #555; stroke-width: 1.5; }
-.trace-tick  { fill: #8a8a8a; font-size: 15px; text-anchor: end; }
-.trace-axis-label { fill: #6a6a6a; font-size: 15px; text-anchor: middle; }
+.trace-grid   { stroke: #262626; stroke-width: 1; }
+.trace-axis   { stroke: #3a3a3a; stroke-width: 1; }
+.trace-tick   { fill: var(--fg-3); font-size: 10px; text-anchor: end; }
+.trace-rep-n  { fill: #6e6e6e; font-size: 9px; text-anchor: middle; }
+/* The three reps the headline is the mean of. */
+.trace-cfband { fill: #ffffff; opacity: 0.035; }
 
-/* Mitred joins, not rounded. The noise in a hang *is* the signal
-   here — rounding the corners sands the spikes off and turns a real
-   reading into a smooth curve nobody measured. */
+/* Quiet. This is the working, not the answer — it was the loudest
+   thing on the card and it is the noise. */
 .trace-line {
     fill: none;
-    stroke: #d8d8d8;
-    stroke-width: 1.3;
+    stroke: #6e6e6e;
+    stroke-width: 1;
     stroke-linejoin: miter;
     stroke-linecap: butt;
-    stroke-miterlimit: 10;
+    stroke-miterlimit: 8;
+    vector-effect: non-scaling-stroke;
     shape-rendering: geometricPrecision;
 }
+.trace-dots circle { fill: #8a8a8a; }
 
-/* One per reading. The scale broadcasts about five times a second, so
-   these are countable, and the gaps between them are dropped packets
-   rather than a steady hand. */
-.trace-dots circle {
-    fill: #f2f2f2;
-    stroke: none;
-}
-
-/* The whole point of the chart: drawn only across the slice that
-   counts, sitting on the squiggle it was taken from. */
+/* The measurement. Butt caps, because round caps on a 12px bar make
+   it read as a lozenge rather than an interval. */
 .trace-window {
-    stroke: #f0a020;
+    stroke: var(--measure);
     stroke-width: 4;
-    stroke-linecap: round;
+    stroke-linecap: butt;
+    vector-effect: non-scaling-stroke;
 }
-.trace-window.unreliable {
-    stroke: #d08a3a;
-    stroke-dasharray: 5 4;
-    stroke-width: 3;
-}
+/* Less certain, so less ink — not a different colour nobody can
+   decode at this size. */
+.trace-window.unreliable { stroke: var(--measure); opacity: 0.4; stroke-width: 3; }
+/* A rep that recorded nothing usable, marked on the floor so the gap
+   is accounted for rather than silently missing. */
+.trace-window.missing { stroke: #5a5a5a; stroke-width: 3; stroke-dasharray: 2 3; }
 
-.trace-cf { stroke: #e5484d; stroke-width: 1.6; }
-.trace-cf-label { fill: #e5484d; font-size: 15px; }
+/* The answer. Loudest thing on the chart. */
+.trace-cf {
+    stroke: var(--cf);
+    stroke-width: 2;
+    stroke-dasharray: 8 5;
+    vector-effect: non-scaling-stroke;
+}
+/* HTML rather than svg text: the svg is redrawn at the pixel width of
+   its container, and a label inside it would be one more thing to keep
+   in step. */
+.trace-cf-tag {
+    position: absolute;
+    right: var(--s-2);
+    transform: translateY(-50%);
+    color: var(--cf);
+    background: var(--bg);
+    padding: 0 4px;
+    font-size: 10px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+}
 
 .trace-empty {
-    color: #8a8a8a;
-    padding: 2.5rem 1.5rem;
+    color: var(--fg-3);
+    padding: var(--s-5) var(--s-4);
     text-align: center;
-    line-height: 1.5;
-}
-.trace-note {
-    margin-top: 0.75rem;
-    color: #8a8a8a;
-    font-size: 0.9rem;
-    line-height: 1.5;
+    font-size: var(--t-sm);
 }
 
+/* One legend for the list, not one per card. */
 .trace-legend {
     display: flex;
     flex-wrap: wrap;
-    gap: 1rem;
-    margin-bottom: 0.75rem;
-    font-size: 0.85rem;
-    color: #8a8a8a;
+    gap: var(--s-4);
+    margin-bottom: var(--s-4);
+    font-size: var(--t-xs);
+    color: var(--fg-3);
 }
-.trace-key { display: flex; align-items: center; gap: 0.4rem; }
+.trace-key { display: flex; align-items: center; gap: 6px; }
 .trace-key::before {
-    content: '';
-    width: 1.1rem;
+    content: "";
+    width: 14px;
     height: 0;
-    border-top-width: 3px;
+    border-top-width: 2px;
     border-top-style: solid;
 }
-.trace-key.line::before       { border-color: #cfcfcf; border-top-width: 2px; }
-.trace-key.window::before     { border-color: #f0a020; }
-.trace-key.unreliable::before { border-color: #d08a3a; border-top-style: dashed; }
-.trace-key.cf::before         { border-color: #e5484d; border-top-width: 2px; }
+.trace-key.line::before       { border-color: #6e6e6e; }
+.trace-key.window::before     { border-color: var(--measure); border-top-width: 4px; }
+.trace-key.unreliable::before { border-color: var(--measure); opacity: 0.4; border-top-width: 3px; }
+.trace-key.cf::before         { border-color: var(--cf); border-top-style: dashed; }
 
-/* -- rep by rep -----------------------------------------------
-   A bar per rep. The three the critical force is read off are
-   marked, because that is what the headline rests on. */
-.rep-list { display: flex; flex-direction: column; gap: 0.3rem; }
-.rep-row {
-    display: grid;
-    grid-template-columns: 2rem 1fr 5rem;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.3rem 0;
+.warning-message {
+    background: #2e2410;
+    border: 1px solid #5a4718;
+    border-radius: 6px;
+    color: #ffd479;
+    padding: var(--s-3) var(--s-4);
+    margin-bottom: var(--s-4);
+    font-size: var(--t-sm);
+    line-height: 1.45;
 }
-.rep-n {
-    color: #8a8a8a;
-    font-size: 0.85rem;
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-}
-.rep-track {
-    background: #2a2a2a;
-    border-radius: 4px;
-    height: 1.1rem;
-    overflow: hidden;
-}
-.rep-fill {
+
+.layout-switch {
     display: block;
-    height: 100%;
-    background: #4a8fd4;
-    border-radius: 4px;
+    text-align: center;
+    color: var(--fg-3);
+    font-size: var(--t-xs);
+    margin-top: var(--s-5);
+    text-decoration: none;
 }
-.rep-row.cf-rep .rep-fill    { background: #f0a020; }
-.rep-row.unreliable .rep-fill { background: #6a5a3a; }
-.rep-row.cf-rep .rep-n       { color: #f0a020; font-weight: 600; }
-.rep-val {
-    color: #b0b0b0;
-    font-size: 0.85rem;
-    font-variant-numeric: tabular-nums;
-}
-.rep-row.unreliable .rep-val { color: #8a7a5a; }
-
-.detail-back {
-    width: auto;
-    margin: 0 0 1rem;
-    padding: 0.5rem 0.9rem;
-    font-size: 0.9rem;
-}
-
-/* -- deleting -------------------------------------------------
-   Set apart from everything else on the screen, and two taps deep.
-   A test takes four minutes to record and cannot be repeated, so
-   the cost of a stray press is not symmetrical with the cost of an
-   extra one. */
-.danger-zone {
-    margin-top: 2.5rem;
-    padding-top: 1.5rem;
-    border-top: 1px solid #333;
-    display: flex;
-    justify-content: flex-end;
-}
-.delete-btn {
-    width: auto;
-    margin: 0;
-    padding: 0.6rem 1.1rem;
-    font-size: 0.9rem;
-    background: transparent;
-    border: 1px solid #5a3a3a;
-    color: #c98a8a;
-}
-.delete-btn:hover:not(:disabled) {
-    background: #3a2020;
-    border-color: #7a4a4a;
-    color: #ffb0b0;
-}
-/* Armed: it now means it. Disarms itself after five seconds so a
-   half-pressed delete is not left waiting for the next tap. */
-.delete-btn.armed {
-    background: #7a2020;
-    border-color: #a33;
-    color: #fff;
-    font-weight: 600;
-}
-.delete-btn.armed:hover:not(:disabled) { background: #932828; }
+.layout-switch:hover { color: var(--fg-2); text-decoration: underline; }

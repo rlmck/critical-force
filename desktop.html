@@ -109,6 +109,17 @@
                 <div class="cf-rep-values" id="cfRepValues">--</div>
             </div>
 
+            <div class="overlay-section">
+                <h2>Every reading</h2>
+                <div class="trace-legend">
+                    <span class="trace-key line">every reading</span>
+                    <span class="trace-key window">2&ndash;6s average</span>
+                    <span class="trace-key unreliable">few readings</span>
+                    <span class="trace-key cf">critical force</span>
+                </div>
+                <div id="resultsTrace" class="trace-container"></div>
+            </div>
+
             <div class="chart-container results-chart">
                 <div id="cfLine" class="cf-line"></div>
                 <div class="chart" id="resultsChart"></div>
@@ -128,7 +139,6 @@
 
             <div class="button-group">
                 <button id="saveBtn">Save Result</button>
-                <button id="viewReadingsBtn" class="secondary">View every reading</button>
                 <button id="retryBtn" class="secondary">Test Again</button>
             </div>
         </div>
@@ -137,7 +147,15 @@
     <!-- History -->
     <div id="historyScreen" class="screen">
         <div class="compare-container">
-            <h1>History</h1>
+            <div class="screen-head">
+                <h1>History</h1>
+                <span class="filter-count" id="filterCount"></span>
+                <div class="head-actions">
+                    <button type="button" class="ghost-btn" id="filterClear" style="display:none">Clear filters</button>
+                    <button type="button" id="importBtn" class="import-btn" style="display:none">Import to database</button>
+                </div>
+            </div>
+
             <div class="upload-area" id="uploadArea">
                 <input type="file" id="fileInput" multiple accept=".json" style="display:none">
                 <label for="fileInput">
@@ -147,7 +165,6 @@
                 </label>
             </div>
 
-            <button id="importBtn" class="import-btn" style="display:none">Import to database</button>
 
             <div class="filter-bar">
                 <label class="filter">
@@ -171,8 +188,13 @@
                         <option value="365">Last year</option>
                     </select>
                 </label>
-                <span class="filter-count" id="filterCount"></span>
-                <button type="button" class="filter-clear" id="filterClear" style="display:none">Clear</button>
+            </div>
+
+            <div class="trace-legend">
+                <span class="trace-key line">every reading</span>
+                <span class="trace-key window">2&ndash;6s average</span>
+                <span class="trace-key unreliable">few readings</span>
+                <span class="trace-key cf">critical force</span>
             </div>
 
             <div id="historyList" class="history-list"></div>
@@ -193,54 +215,6 @@
         </div>
     </div>
 
-    <!-- One test, close up -->
-    <div id="detailScreen" class="screen">
-        <div class="results-container">
-            <button type="button" id="detailBack" class="secondary detail-back">‹ Back to history</button>
-            <h1 id="detailTitle">Test</h1>
-            <div class="compare-date" id="detailSubtitle" style="text-align:center;font-size:1rem;margin-bottom:1.5rem"></div>
-
-            <div class="metrics-grid">
-                <div class="metric-card">
-                    <div class="metric-label">Critical Force</div>
-                    <div class="metric-value" id="detailCf">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">CF:Bodyweight Ratio</div>
-                    <div class="metric-value" id="detailRatio">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">80% CF (ARC Zone)</div>
-                    <div class="metric-value" id="detailArc">--</div>
-                </div>
-                <div class="metric-card">
-                    <div class="metric-label">Threshold Zone</div>
-                    <div class="metric-value" id="detailThreshold">--</div>
-                </div>
-            </div>
-
-            <div class="overlay-section">
-                <h2>Every reading</h2>
-                <div class="trace-legend">
-                    <span class="trace-key line">Force</span>
-                    <span class="trace-key window">Averaging window (2–6s)</span>
-                    <span class="trace-key unreliable">Too few readings</span>
-                    <span class="trace-key cf">Critical force</span>
-                </div>
-                <div id="detailTrace" class="trace-container"></div>
-                <p class="trace-note" id="detailNote" style="display:none"></p>
-            </div>
-
-            <div class="overlay-section">
-                <h2>Rep by rep</h2>
-                <div id="detailReps" class="rep-list"></div>
-            </div>
-
-            <div class="danger-zone">
-                <button type="button" id="detailDelete" class="delete-btn">Delete this test</button>
-            </div>
-        </div>
-    </div>
 
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 

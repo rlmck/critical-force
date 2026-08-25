@@ -282,8 +282,14 @@ export function traceFor(json) {
     return { kind: 'reps', segments, bars, winStart, winEnd };
   }
 
-  /* ── nothing kept ──────────────────────────────────────── */
-  return { kind: 'none', segments: [], bars: [], winStart, winEnd };
+  /* ── nothing kept ────────────────────────────────────────
+     No readings, but the per-rep averages are still a record and
+     still belong on the same axes as everything else. The bars need
+     no raw data — only the average and a nominal slot to sit in — so
+     they are built the same way, and the card draws a chart with no
+     trace on it rather than a different kind of chart entirely. */
+  const bars = reps.map((rep, i) => bar(rep, i, i * (hangMs + restMs)));
+  return { kind: 'none', segments: [], bars, winStart, winEnd };
 }
 
 /* ── importing an old test ──────────────────────────────────

@@ -14,15 +14,19 @@ body {
     padding: 20px;
 }
 
-.screen { max-width: 860px; }
+/* A form wants a comfortable measure; a row of 24-rep charts wants
+   every pixel. At 900px each rep gets 30px and the 4-second averaging
+   window is a 12px speck. */
+.screen { max-width: 900px; }
+#historyScreen.screen { max-width: 1400px; }
 
-h1 { font-size: 2.5rem; margin-bottom: 2rem; }
-h2 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+h1 { font-size: 2.1rem; margin-bottom: 1.75rem; }
+h2 { font-size: 1.25rem; margin-bottom: 0.85rem; }
 h3 { font-size: 1.15rem; }
 
 .setup-container,
-.results-container,
-.compare-container { padding: 3rem; }
+.results-container { padding: 3rem; }
+.compare-container { padding: 2rem 0; }
 
 /* A fixed bar across the top: there is always room for it, and it
    never covers content because the body is centred with padding. */

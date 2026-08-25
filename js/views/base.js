@@ -45,7 +45,20 @@ export class BaseView {
         this.filters = {};
         this.setupEventListeners();
         this.bindFilters();
-        this.bindDelete();
+
+        /* The trace is drawn at the pixel width it was given, so a
+           resized window needs a redraw rather than a stretch. Debounced,
+           and only when the width actually moved — a phone rotating its
+           address bar in and out changes the height constantly. */
+        let lastW = window.innerWidth;
+        window.addEventListener('resize', () => {
+            if (Math.abs(window.innerWidth - lastW) < 24) return;
+            lastW = window.innerWidth;
+            clearTimeout(this._resizeTimer);
+            this._resizeTimer = setTimeout(() => {
+                if (this.currentScreen === 'history') this.renderHistory();
+            }, 180);
+        });
     }
 
     /* Bind only what this layout actually has. Desktop has a drag-and
@@ -390,6 +403,22 @@ export class BaseView {
 
         this.renderResultsChart(r.cf);
 
+        // Store results for saving
+        appData.results = Object.assign({}, r, {
+            allReps: stateMachine.repData,
+            allReadings: stateMachine.allReadings
+        });
+
+        /* The trace, drawn from the same document the export would
+           write — which is why the results above have to be stored
+           first. It is the chart worth looking at straight after a
+           test, so it is on the screen rather than behind a button. */
+        const liveDoc = buildExport(appData, stateMachine, appData.results, new Date());
+        traceChart.render(el('resultsTrace'), traceFor(liveDoc), {
+            cf: r.cf, name: appData.name, hand: handLabel,
+            cfReps: CONFIG.CF_REPS.map(i => i + 1)
+        });
+
         const currentDataset = {
             name: appData.name,
             hand: handLabel,
@@ -411,33 +440,6 @@ export class BaseView {
             }
         }
 
-        // Store results for saving
-        appData.results = Object.assign({}, r, {
-            allReps: stateMachine.repData,
-            allReadings: stateMachine.allReadings
-        });
-
-        /* The moment you most want the trace is straight after the
-           test, before it has been saved anywhere. Build the same
-           document the export would produce so the detail view has
-           something to draw right now. */
-        const now = new Date();
-        this.lastTest = {
-            id: 'live',
-            name: appData.name,
-            hand: handLabel,
-            grip: GRIPS[appData.grip],
-            date: now,
-            cf: r.cf,
-            cfRatio: r.ratio,
-            bodyweight: appData.bodyweight,
-            arcZone: r.arcZone,
-            thresholdZone: r.thresholdZone,
-            repData: stateMachine.repData,
-            unreliableReps: r.unreliableReps,
-            source: 'live',
-            raw: buildExport(appData, stateMachine, appData.results, now)
-        };
     }
 
     renderResultsChart(cf) {
@@ -704,10 +706,6 @@ export class BaseView {
       this.renderHistory();
     });
     this.on('importBtn', 'click', () => this.importFiles());
-    this.on('viewReadingsBtn', 'click', () => this.showDetail('live'));
-    /* Back goes where you came from, not always to the history — a
-       test you have just finished is not in the history yet. */
-    this.on('detailBack', 'click', () => this.showScreen(this.detailFrom === 'results' ? 'results' : 'history'));
   }
 
   renderHistoryStatus(text) {
@@ -734,10 +732,15 @@ export class BaseView {
     this.renderHistory();
   }
 
+  /* -- the history, as charts -------------------------------
+     A list of names with a link to a graph is a list of promises.
+     Every test on this screen draws its own trace, in place, because
+     the trace is the thing you came to look at. */
   renderHistory(status) {
     const list = el('historyList');
     if (!list) return;
     this.datasets = this.datasets || [];
+
     if (status && !this.datasets.length) {
       this.refreshFilterOptions();
       this.updateFilterSummary(0, 0);
@@ -749,14 +752,9 @@ export class BaseView {
     this.updateFilterSummary(shown.length, this.datasets.length);
 
     this.selected = this.selected || [];
-    /* A selection only survives while its test is still on screen —
-       otherwise the chart plots a line the list no longer shows. */
+    /* A selection only survives while its test is on screen, or the
+       overlay plots a line the page no longer shows. */
     this.selected = this.selected.filter(id => shown.some(d => d.id === id));
-    /* Nothing chosen yet: show the most recent couple rather than an
-       empty chart and a prompt. */
-    if (!this.selected.length && shown.length) {
-      this.selected = shown.slice(0, Math.min(2, shown.length)).map(d => d.id);
-    }
 
     const importable = (this.fileDatasets || []).length;
     const importBtn = el('importBtn');
@@ -771,72 +769,171 @@ export class BaseView {
       p.className = 'history-empty';
       p.textContent = 'No tests match these filters.';
       list.appendChild(p);
-      return this.renderHistoryChart();
+      return this.renderOverlay();
     }
 
-    shown.forEach(ds => {
-      const idx = this.selected.indexOf(ds.id);
-      const row = document.createElement('div');
-      row.className = 'history-row' + (idx >= 0 ? ' selected' : '');
-      if (idx >= 0) row.style.setProperty('--dot', PALETTE[idx % PALETTE.length]);
+    /* One y-scale across the whole screen. Stacked charts imply they
+       can be compared, and scaling each to its own maximum destroys
+       that — a 10 kg critical force and a 25 kg one would sit at the
+       same height on two cards an inch apart. */
+    const peak = Math.max(...shown.map(d => Math.max(
+      d.cf || 0,
+      ...(d.repData || []).map(r => r.average || 0)
+    )), 1);
+    const yMax = Math.ceil(peak / 10) * 10;
 
-      /* Opening a test is the main thing you do to a row, so the row
-         is the target for it. Adding one to the comparison chart is
-         the narrower intention and gets its own small control — the
-         first arrangement had these the other way round and the
-         detail view was effectively hidden behind a chevron. */
-      const cmp = document.createElement('button');
-      cmp.type = 'button';
-      cmp.className = 'history-cmp';
-      cmp.setAttribute('aria-pressed', idx >= 0 ? 'true' : 'false');
-      cmp.setAttribute('aria-label', `${idx >= 0 ? 'Remove' : 'Add'} ${ds.name} ${ds.hand} hand ${idx >= 0 ? 'from' : 'to'} the comparison chart`);
-      cmp.title = 'Show on the comparison chart';
-      cmp.addEventListener('click', () => this.toggleSelected(ds.id));
+    /* Two passes on purpose. The chart measures the width it has been
+       given, and a card that is not in the document yet has none — so
+       every card is inserted first and the charts drawn second. */
+    const pending = shown.map(ds => {
+      const card = this.testCard(ds, yMax);
+      list.appendChild(card);
+      return card;
+    });
+    pending.forEach(card => card._drawChart && card._drawChart());
+    this.renderOverlay();
+  }
 
-      const dot = document.createElement('span');
-      dot.className = 'history-dot';
-      cmp.appendChild(dot);
+  /* One test: who, the numbers, and its trace. */
+  testCard(ds, yMax) {
+    const idx = (this.selected || []).indexOf(ds.id);
+    const card = document.createElement('article');
+    card.className = 'test-card' + (idx >= 0 ? ' selected' : '');
+    if (idx >= 0) card.style.setProperty('--dot', PALETTE[idx % PALETTE.length]);
 
-      const open = document.createElement('button');
-      open.type = 'button';
-      open.className = 'history-open';
-      open.setAttribute('aria-label', `View every reading from ${ds.name}, ${ds.hand} hand`);
-      open.addEventListener('click', () => this.showDetail(ds.id));
+    // ── head ──────────────────────────────────────────────
+    const head = document.createElement('header');
+    head.className = 'test-head';
 
-      const main = document.createElement('span');
-      main.className = 'history-main';
-      const who = document.createElement('span');
-      who.className = 'history-who';
-      who.textContent = ds.name + ' · ' + ds.hand;
-      const when = document.createElement('span');
-      when.className = 'history-when';
-      when.textContent = [
-        ds.date ? ds.date.toLocaleDateString() : '—',
-        ds.grip,
-        ds.source === 'file' ? 'not imported' : null
-      ].filter(Boolean).join(' · ');
-      main.append(who, when);
+    const id = document.createElement('div');
+    id.className = 'test-id';
+    const who = document.createElement('h3');
+    who.className = 'test-who';
+    who.textContent = `${ds.name} · ${ds.hand}`;
+    const meta = document.createElement('p');
+    meta.className = 'test-meta';
+    meta.textContent = [
+      ds.date ? ds.date.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : 'Date unknown',
+      ds.grip,
+      ds.bodyweight ? `${ds.bodyweight} kg` : null,
+      ds.source === 'file' ? 'not imported' : null
+    ].filter(Boolean).join(' · ');
+    id.append(who, meta);
 
-      const cf = document.createElement('span');
-      cf.className = 'history-cf';
-      cf.textContent = ds.cf.toFixed(1) + ' kg';
+    const nums = document.createElement('div');
+    nums.className = 'test-nums';
+    const cf = document.createElement('span');
+    cf.className = 'test-cf';
+    cf.innerHTML = '';
+    cf.textContent = `${ds.cf.toFixed(1)} kg`;
+    const cfLab = document.createElement('span');
+    cfLab.className = 'test-cf-label';
+    cfLab.textContent = ds.cfRatio ? `critical force · ${ds.cfRatio.toFixed(2)}× bodyweight` : 'critical force';
+    nums.append(cf, cfLab);
 
-      const ratio = document.createElement('span');
-      ratio.className = 'history-ratio';
-      ratio.textContent = ds.cfRatio ? ds.cfRatio.toFixed(2) + 'x' : '—';
+    // ── actions ───────────────────────────────────────────
+    const actions = document.createElement('div');
+    actions.className = 'test-actions';
 
-      /* Says what it does. A bare chevron is a promise the reader has
-         to guess at, and this is the feature the screen exists for. */
-      const go = document.createElement('span');
-      go.className = 'history-go';
-      go.textContent = 'View readings ›';
+    const cmp = document.createElement('button');
+    cmp.type = 'button';
+    cmp.className = 'test-cmp';
+    cmp.setAttribute('aria-pressed', idx >= 0 ? 'true' : 'false');
+    cmp.textContent = idx >= 0 ? 'Comparing' : 'Compare';
+    cmp.addEventListener('click', () => this.toggleSelected(ds.id));
 
-      open.append(main, cf, ratio, go);
-      row.append(cmp, open);
-      list.appendChild(row);
+    /* Two presses, and the second one says what it is about to do. A
+       test takes four minutes and cannot be repeated, so a stray press
+       and an extra press do not cost the same. */
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'test-del';
+    del.textContent = 'Delete';
+    del.addEventListener('click', () => this.pressDelete(del, ds));
+
+    actions.append(cmp, del);
+    head.append(id, nums, actions);
+    card.appendChild(head);
+
+    // ── the chart ─────────────────────────────────────────
+    const chartBox = document.createElement('div');
+    /* The same class the results screen uses, so the chart is styled
+       and positioned by one rule rather than two that can drift. The
+       CF label is positioned against this box, so it must be the one
+       carrying position:relative. */
+    chartBox.className = 'trace-container';
+    card.appendChild(chartBox);
+
+    const trace = traceFor(ds.raw || {});
+
+    /* Say which of the three kinds of record this is, so a sparser
+       chart does not read as a worse test. */
+    if (trace.kind !== 'session') {
+      const chip = document.createElement('span');
+      chip.className = 'test-chip';
+      chip.textContent = trace.kind === 'reps' ? 'hangs only' : 'averages only';
+      chip.title = trace.kind === 'reps'
+        ? 'This export kept each hang but nothing from the rests, so the reps sit at their nominal spacing — exact in force, approximate in time.'
+        : 'This export kept no raw readings, only the per-rep averages. The orange marks are the whole record.';
+      who.appendChild(chip);
+    }
+
+
+    card._drawChart = () => traceChart.render(chartBox, trace, {
+      cf: ds.cf, name: ds.name, hand: ds.hand, yMax,
+      cfReps: CONFIG.CF_REPS.map(i => i + 1)
     });
 
-    this.renderHistoryChart();
+    return card;
+  }
+
+  /* -- deleting ---------------------------------------------- */
+  async pressDelete(btn, ds) {
+    if (this._armed && this._armed !== btn) this.disarm(this._armed);
+
+    if (!btn.dataset.armed) {
+      btn.dataset.armed = '1';
+      btn.textContent = 'Really delete?';
+      btn.classList.add('armed');
+      this._armed = btn;
+      clearTimeout(this._armTimer);
+      /* Disarms itself, so a half-pressed delete is not left waiting
+         to catch the next tap. */
+      this._armTimer = setTimeout(() => this.disarm(btn), 5000);
+      return;
+    }
+
+    this.disarm(btn);
+
+    if (ds.source === 'file') {
+      this.fileDatasets = (this.fileDatasets || []).filter(d => d.id !== ds.id);
+      await this.loadHistory();
+      return this.toast(`Removed ${ds.name} ${ds.hand} from this session. The file itself is untouched.`);
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Deleting…';
+    try {
+      await deleteTest(ds.id);
+      this.datasets = (this.datasets || []).filter(d => d.id !== ds.id);
+      this.selected = (this.selected || []).filter(x => x !== ds.id);
+      await this.loadHistory();
+      this.toast(`Deleted ${ds.name} · ${ds.hand} hand, ${ds.date ? ds.date.toLocaleDateString() : 'undated'}.`);
+    } catch (err) {
+      console.error('Delete failed:', err);
+      btn.disabled = false;
+      btn.textContent = 'Delete';
+      this.toast(`Could not delete that test: ${message(err)}`, true);
+    }
+  }
+
+  disarm(btn) {
+    clearTimeout(this._armTimer);
+    if (this._armed === btn) this._armed = null;
+    if (!btn) return;
+    delete btn.dataset.armed;
+    btn.classList.remove('armed');
+    btn.textContent = 'Delete';
   }
 
   updateFilterSummary(shown, total) {
@@ -844,16 +941,19 @@ export class BaseView {
     if (n) n.textContent = shown === total ? `${total} test${total === 1 ? '' : 's'}` : `${shown} of ${total} tests`;
     const clear = el('filterClear');
     const f = this.filters || {};
-    const active = !!(f.athlete || f.grip || f.hand || f.days);
-    if (clear) clear.style.display = active ? '' : 'none';
+    if (clear) clear.style.display = (f.athlete || f.grip || f.hand || f.days) ? '' : 'none';
   }
 
-  renderHistoryChart() {
+  /* -- comparing ----------------------------------------------
+     The decay curves of the chosen tests, laid over each other. This
+     is the one chart that is about several tests rather than one, so
+     it sits above the list rather than inside it. */
+  renderOverlay() {
     const chart = el('historyChart');
     if (!chart) return;
     const chosen = (this.datasets || []).filter(d => (this.selected || []).includes(d.id));
     const section = el('historyChartSection');
-    if (section) section.style.display = chosen.length ? 'block' : 'none';
+    if (section) section.style.display = chosen.length >= 1 ? 'block' : 'none';
     if (!chosen.length) return;
 
     overlayChart.render(chart, el('historyLegend'), chosen, { mode: 'force' });
@@ -864,158 +964,5 @@ export class BaseView {
       const rs = el('historyRatioSection');
       if (rs) rs.style.display = hasRatio ? 'block' : 'none';
     }
-  }
-
-  /* -- one test, close up ------------------------------------
-     The history screen compares tests; this explains one. The chart
-     is the raw trace with each rep's averaging window drawn on top of
-     it, so the headline number stops being something you take on
-     trust and becomes something you can see being measured. */
-  /* Reachable from two places: a row in the history, and the results
-     screen of a test that has only just finished and may not be in
-     the history yet. */
-  showDetail(id) {
-    const ds = id === 'live'
-      ? this.lastTest
-      : (this.datasets || []).find(d => d.id === id);
-    if (!ds) return;
-    this.detail = ds;
-    this.detailFrom = id === 'live' ? 'results' : 'history';
-    this.disarmDelete();
-
-    /* A test that has only just finished is not in the database, so
-       there is nothing to delete — Test Again is the way out of it. */
-    const del = el('detailDelete');
-    if (del) del.style.display = ds.source === 'live' ? 'none' : '';
-    this.showScreen('detail');
-    const back = el('detailBack');
-    if (back) back.textContent = this.detailFrom === 'results' ? '‹ Back to result' : '‹ Back to history';
-
-    const set = (elId, text) => { const n = el(elId); if (n) n.textContent = text; };
-    set('detailTitle', `${ds.name} · ${ds.hand} hand`);
-    set('detailSubtitle', [
-      ds.date ? ds.date.toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' }) : 'Date unknown',
-      ds.grip,
-      ds.bodyweight ? `${ds.bodyweight} kg bodyweight` : null
-    ].filter(Boolean).join(' · '));
-    set('detailCf', `${ds.cf.toFixed(1)} kg`);
-    set('detailRatio', ds.cfRatio ? `${ds.cfRatio.toFixed(2)}x` : '—');
-    set('detailArc', ds.arcZone != null ? `${ds.arcZone.toFixed(1)} kg` : '—');
-    set('detailThreshold', ds.thresholdZone ||
-      (ds.arcZone != null ? `${ds.arcZone.toFixed(1)} - ${ds.cf.toFixed(1)} kg` : '—'));
-
-    const trace = traceFor(ds.raw || {});
-    const kind = traceChart.render(el('detailTrace'), trace, {
-      cf: ds.cf, name: ds.name, hand: ds.hand, grip: ds.grip
-    });
-
-    /* Say which of the three kinds of record this is, rather than
-       leaving a sparser chart looking like a worse test. */
-    const note = el('detailNote');
-    if (note) {
-      note.textContent =
-        kind === 'session' ? 'Every reading of the whole test, rests included. The orange bars are the 2–6s slice of each hang that the average is taken from.'
-      : kind === 'reps'    ? 'This export kept each hang’s readings but nothing from the rests, so the reps are laid out in order at their nominal spacing — exact in force, approximate in time.'
-      :                      'Recorded before the app kept raw readings.';
-      note.style.display = '';
-    }
-
-    this.renderDetailReps(ds);
-  }
-
-  /* -- deleting -----------------------------------------------
-     Two steps, and the second one says what it is about to remove.
-     A single-tap delete in a list is one stray thumb away from losing
-     a test that took four minutes to record and cannot be repeated. */
-  bindDelete() {
-    this.on('detailDelete', 'click', async () => {
-      const btn = el('detailDelete');
-      const ds = this.detail;
-      if (!btn || !ds) return;
-
-      if (!btn.dataset.armed) {
-        btn.dataset.armed = '1';
-        btn.textContent = 'Really delete?';
-        btn.classList.add('armed');
-        /* Disarm on its own, so a half-pressed delete does not sit
-           there waiting to catch the next tap. */
-        clearTimeout(this._armTimer);
-        this._armTimer = setTimeout(() => this.disarmDelete(), 5000);
-        return;
-      }
-
-      this.disarmDelete();
-      if (ds.source === 'file') {
-        /* Never written anywhere — just drop it from this session. */
-        this.fileDatasets = (this.fileDatasets || []).filter(d => d.id !== ds.id);
-        this.showScreen('history');
-        await this.loadHistory();
-        return this.toast(`Removed ${ds.name} ${ds.hand} from this session. The file itself is untouched.`);
-      }
-
-      btn.disabled = true;
-      btn.textContent = 'Deleting…';
-      try {
-        await deleteTest(ds.id);
-        this.datasets = (this.datasets || []).filter(d => d.id !== ds.id);
-        this.selected = (this.selected || []).filter(id => id !== ds.id);
-        this.showScreen('history');
-        await this.loadHistory();
-        this.toast(`Deleted ${ds.name} · ${ds.hand} hand, ${ds.date ? ds.date.toLocaleDateString() : 'undated'}.`);
-      } catch (err) {
-        console.error('Delete failed:', err);
-        this.toast(`Could not delete that test: ${message(err)}`, true);
-      } finally {
-        btn.disabled = false;
-        btn.textContent = 'Delete this test';
-      }
-    });
-  }
-
-  disarmDelete() {
-    clearTimeout(this._armTimer);
-    const btn = el('detailDelete');
-    if (!btn) return;
-    delete btn.dataset.armed;
-    btn.classList.remove('armed');
-    btn.textContent = 'Delete this test';
-  }
-
-  renderDetailReps(ds) {
-    const host = el('detailReps');
-    if (!host) return;
-    host.replaceChildren();
-
-    const reps = ds.repData || [];
-    const max = Math.max(...reps.map(r => r.average || 0), 1);
-    const cfReps = new Set(CONFIG.CF_REPS.map(i => i + 1));
-
-    reps.forEach((r, i) => {
-      const n = r.rep != null ? r.rep : i + 1;
-      const row = document.createElement('div');
-      row.className = 'rep-row'
-        + (cfReps.has(n) ? ' cf-rep' : '')
-        + (r.unreliable ? ' unreliable' : '');
-
-      const label = document.createElement('span');
-      label.className = 'rep-n';
-      label.textContent = n;
-
-      const track = document.createElement('span');
-      track.className = 'rep-track';
-      const fill = document.createElement('span');
-      fill.className = 'rep-fill';
-      /* A rep that averaged zero is missing data, not a rep at zero
-         force — draw nothing rather than a bar on the floor. */
-      fill.style.width = r.average > 0 ? `${(r.average / max) * 100}%` : '0';
-      track.appendChild(fill);
-
-      const val = document.createElement('span');
-      val.className = 'rep-val';
-      val.textContent = r.average > 0 ? `${r.average.toFixed(1)} kg` : 'no data';
-
-      row.append(label, track, val);
-      host.appendChild(row);
-    });
   }
 }
