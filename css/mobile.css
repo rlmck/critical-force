@@ -149,8 +149,10 @@ button,
 
 .screen-head { flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
 .screen-head h1 { font-size: 17px; }
-.head-actions { width: 100%; margin-left: 0; }
-.head-actions button { flex: 1; min-height: 40px; }
+.head-actions { width: 100%; margin-left: 0; flex-wrap: wrap; gap: 6px; }
+.head-actions > button { flex: 1; min-height: 40px; }
+.unit-toggle { flex: 1 1 100%; }
+.unit-toggle button { flex: 1; min-height: 40px; }
 
 .filter-bar {
     display: grid;
@@ -161,7 +163,7 @@ button,
 .filter, .filter select { width: 100%; }
 .filter select { min-height: 40px; font-size: 16px; }
 
-.upload-area { padding: 10px; margin-bottom: 12px; }
+.upload-area { font-size: 15px; }
 .trace-legend { gap: 10px; margin-bottom: 12px; }
 
 /* Full-bleed the chart to the card edges: 32px of padding is 14% of
@@ -182,3 +184,24 @@ button,
 .test-cmp, .test-del { min-height: 40px; padding: 8px 12px; font-size: 12px; }
 
 .trace-container { margin: 0 -8px; border-radius: 4px; }
+
+/* Every chart is window-marks-only below 420px (see js/trace.js), on
+   the results screen as well as the history, so the legend drops the
+   keys that describe a line nobody is drawing. A legend promising a
+   mark the chart does not contain is worse than no legend. */
+.trace-key.line,
+.trace-key.missing { display: none; }
+
+/* A 4.7px mark at 12px per rep is the whole chart, so it can afford
+   the extra pixel. */
+#historyScreen .trace-window { stroke-width: 5; }
+#historyScreen .trace-window.unreliable { stroke-width: 4; }
+
+/* The head was 138px of a 365px card. The number moves onto the same
+   line as the buttons, and the meta line loses the bodyweight, which
+   is the least useful of the three things it carried. */
+.test-head { align-items: center; }
+.test-id { flex: 1 1 100%; }
+.test-nums { padding-left: 8px; }
+.test-cf { font-size: 22px; }
+.test-cf-label { font-size: 10px; }

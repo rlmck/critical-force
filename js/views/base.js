@@ -47,18 +47,40 @@ export class BaseView {
         this.bindFilters();
 
         /* The trace is drawn at the pixel width it was given, so a
-           resized window needs a redraw rather than a stretch. Debounced,
-           and only when the width actually moved — a phone rotating its
-           address bar in and out changes the height constantly. */
-        let lastW = window.innerWidth;
-        window.addEventListener('resize', () => {
-            if (Math.abs(window.innerWidth - lastW) < 24) return;
-            lastW = window.innerWidth;
+           change of width needs a redraw rather than a stretch.
+
+           Watching the list itself rather than the window: the window
+           is not the only thing that can change a card's width, and on
+           a phone it changes height constantly as the address bar
+           comes and goes, which is not a reason to redraw ten charts.
+           Only the charts are redrawn — rebuilding the list would lose
+           the scroll position. */
+        /* Two sources, one handler, because they cover different
+           failures. ResizeObserver catches anything that changes a
+           card's width — a scrollbar appearing, a layout change — but
+           its callbacks are delivered during the rendering steps, so a
+           backgrounded or non-compositing page never gets them. The
+           window resize event has the opposite property: it fires
+           regardless, but only for the window. Between them nothing is
+           missed, and the debounce means a change seen by both costs
+           one redraw. */
+        const onWidthChange = () => {
+            const w = Math.round((el('historyList') || {}).clientWidth || 0);
+            if (!w || Math.abs(w - this._lastChartW) < 16) return;
+            this._lastChartW = w;
             clearTimeout(this._resizeTimer);
-            this._resizeTimer = setTimeout(() => {
-                if (this.currentScreen === 'history') this.renderHistory();
-            }, 180);
-        });
+            this._resizeTimer = setTimeout(() => this.redrawCharts(), 150);
+        };
+        this._lastChartW = 0;
+        /* Kilograms or bodyweight-shares. See renderHistory for why the
+           choice matters to a shared scale. */
+        this._unit = 'kg';
+        window.addEventListener('resize', onWidthChange);
+        if (typeof ResizeObserver === 'function') {
+            this._ro = new ResizeObserver(onWidthChange);
+            const list = el('historyList');
+            if (list) this._ro.observe(list);
+        }
     }
 
     /* Bind only what this layout actually has. Desktop has a drag-and
@@ -706,6 +728,19 @@ export class BaseView {
       this.renderHistory();
     });
     this.on('importBtn', 'click', () => this.importFiles());
+    /* The drop zone no longer takes up the top of the screen, so the
+       browse affordance moved to the header beside it. */
+    this.on('addFilesBtn', 'click', () => { const i = el('fileInput'); if (i) i.click(); });
+
+    /* Kilograms or bodyweight-shares, redrawn in place. */
+    document.querySelectorAll('[data-unit]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        this._unit = btn.dataset.unit;
+        document.querySelectorAll('[data-unit]').forEach(b =>
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false'));
+        this.renderHistory();
+      });
+    });
   }
 
   renderHistoryStatus(text) {
@@ -775,27 +810,39 @@ export class BaseView {
     /* One y-scale across the whole screen. Stacked charts imply they
        can be compared, and scaling each to its own maximum destroys
        that — a 10 kg critical force and a 25 kg one would sit at the
-       same height on two cards an inch apart. */
+       same height on two cards an inch apart.
+
+       In kilograms, though, the heaviest athlete sets the ceiling for
+       everyone: a 60 kg scale leaves a 12 kg critical force using a
+       fifth of its plot. Per bodyweight they all land in the same
+       range, which is also the comparison worth making between people
+       of different mass — hence the toggle. */
+    const ratio = this._unit === 'bw';
+    const per = d => (ratio && d.bodyweight > 0 ? d.bodyweight : 1);
     const peak = Math.max(...shown.map(d => Math.max(
-      d.cf || 0,
-      ...(d.repData || []).map(r => r.average || 0)
-    )), 1);
-    const yMax = Math.ceil(peak / 10) * 10;
+      (d.cf || 0) / per(d),
+      ...(d.repData || []).map(r => (r.average || 0) / per(d))
+    )), ratio ? 0.05 : 1);
+    const yMax = ratio
+      ? Math.ceil(peak / 0.1) * 0.1
+      : Math.ceil(peak / 10) * 10;
 
     /* Two passes on purpose. The chart measures the width it has been
        given, and a card that is not in the document yet has none — so
        every card is inserted first and the charts drawn second. */
     const pending = shown.map(ds => {
-      const card = this.testCard(ds, yMax);
+      const card = this.testCard(ds, yMax, ratio ? per(ds) : 1);
       list.appendChild(card);
       return card;
     });
+    this._cards = pending;
+    this._lastChartW = Math.round(list.clientWidth || 0);
     pending.forEach(card => card._drawChart && card._drawChart());
     this.renderOverlay();
   }
 
   /* One test: who, the numbers, and its trace. */
-  testCard(ds, yMax) {
+  testCard(ds, yMax, divisor) {
     const idx = (this.selected || []).indexOf(ds.id);
     const card = document.createElement('article');
     card.className = 'test-card' + (idx >= 0 ? ' selected' : '');
@@ -866,6 +913,14 @@ export class BaseView {
 
     const trace = traceFor(ds.raw || {});
 
+    if (this._unit === 'bw' && !(ds.bodyweight > 0)) {
+      const chip = document.createElement('span');
+      chip.className = 'test-chip';
+      chip.textContent = 'no bodyweight';
+      chip.title = 'This test recorded no bodyweight, so it cannot be shown per bodyweight. The chart below is in kilograms.';
+      who.appendChild(chip);
+    }
+
     /* Say which of the three kinds of record this is, so a sparser
        chart does not read as a worse test. */
     if (trace.kind !== 'session') {
@@ -881,6 +936,7 @@ export class BaseView {
 
     card._drawChart = () => traceChart.render(chartBox, trace, {
       cf: ds.cf, name: ds.name, hand: ds.hand, yMax,
+      divisor: divisor || 1,
       cfReps: CONFIG.CF_REPS.map(i => i + 1)
     });
 
@@ -934,6 +990,14 @@ export class BaseView {
     delete btn.dataset.armed;
     btn.classList.remove('armed');
     btn.textContent = 'Delete';
+  }
+
+  /* Redraw every visible chart at the width it now has, without
+     touching the rest of the DOM. */
+  redrawCharts() {
+    (this._cards || []).forEach(card => {
+      if (card.isConnected && card._drawChart) card._drawChart();
+    });
   }
 
   updateFilterSummary(shown, total) {

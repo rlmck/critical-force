@@ -152,18 +152,21 @@
                 <h1>History</h1>
                 <span class="filter-count" id="filterCount"></span>
                 <div class="head-actions">
+                    <div class="unit-toggle" role="group" aria-label="Show force in">
+                        <button type="button" data-unit="kg" aria-pressed="true">kg</button>
+                        <button type="button" data-unit="bw" aria-pressed="false">&times; bodyweight</button>
+                    </div>
                     <button type="button" class="ghost-btn" id="filterClear" style="display:none">Clear filters</button>
+                    <button type="button" class="ghost-btn" id="addFilesBtn">Add files</button>
                     <button type="button" id="importBtn" class="import-btn" style="display:none">Import to database</button>
                 </div>
             </div>
 
+            <!-- The whole screen is the drop target; this only holds the
+                 file input and the overlay shown while dragging. -->
             <div class="upload-area" id="uploadArea">
                 <input type="file" id="fileInput" multiple accept=".json" style="display:none">
-                <label for="fileInput">
-                    <div class="upload-icon">↑</div>
-                    <div>Add result files</div>
-                    <div class="upload-hint"></div>
-                </label>
+                <span class="upload-hint">Drop result files anywhere on this page</span>
             </div>
 
 
@@ -173,15 +176,15 @@
             <div class="filter-bar">
                 <label class="filter">
                     <span>Athlete</span>
-                    <select id="filterAthlete" data-any-label="All"></select>
+                    <select id="filterAthlete" data-any-label="All athletes"></select>
                 </label>
                 <label class="filter">
                     <span>Grip</span>
-                    <select id="filterGrip" data-any-label="All"></select>
+                    <select id="filterGrip" data-any-label="All grips"></select>
                 </label>
                 <label class="filter">
                     <span>Hand</span>
-                    <select id="filterHand" data-any-label="Both"></select>
+                    <select id="filterHand" data-any-label="Both hands"></select>
                 </label>
                 <label class="filter">
                     <span>When</span>
@@ -198,6 +201,7 @@
                 <span class="trace-key line">every reading</span>
                 <span class="trace-key window">2&ndash;6s average</span>
                 <span class="trace-key unreliable">few readings</span>
+                <span class="trace-key missing">no reading</span>
                 <span class="trace-key cf">critical force</span>
             </div>
 

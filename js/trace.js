@@ -35,10 +35,14 @@ const el = (t, attrs) => {
 const MT = 14, MR = 10, MB = 22;
 
 function heightFor(width) {
-  if (width < 420) return 190;
-  if (width < 700) return 210;
-  return 240;
+  if (width < 420) return 200;
+  if (width < 700) return 260;
+  return 320;
 }
+
+/* Below this a rep is drawn as its readings rather than as a line —
+   see the note where it is used. */
+const SPARSE = 12;
 
 export class TraceChart {
   /**
@@ -64,27 +68,40 @@ export class TraceChart {
     const VW = Math.round(host.clientWidth || host.getBoundingClientRect().width || 700);
     const VH = heightFor(VW);
 
+    /* Force, or force as a share of bodyweight. A shared scale is the
+       only way a stack of charts can be compared, but in kilograms one
+       heavy athlete sets it for everyone and the lighter ones lose
+       most of their plot to empty air. Per bodyweight they all land in
+       the same range, which is the comparison a coach wants anyway. */
+    const div = opts.divisor && opts.divisor > 0 ? opts.divisor : 1;
+    const val = f => f / div;
+
     const pts  = trace.segments.flatMap(s => s.points);
     /* The bars are part of the extent, not decoration over it: a last
        rep whose readings stop before its window closes would otherwise
        run off the right edge. */
     const tMax = Math.max(...pts.map(p => p.t), ...trace.bars.map(b => b.to), 1);
-    const fMax = Math.max(...pts.map(p => p.f), opts.cf || 0, 1);
+    const fMax = Math.max(...pts.map(p => val(p.f)), val(opts.cf || 0), 0.001);
 
     /* One scale across every card on the screen, chosen by the caller.
        Stacked charts imply comparability and per-card scaling destroys
        it: a 10 kg critical force and a 25 kg one would otherwise sit at
        the same height on two cards an inch apart. */
     const top  = opts.yMax || fMax;
-    const step = top > 60 ? 20 : top > 25 ? 10 : 5;
+    /* Few ticks. Seven labels in a short plot is a stack of numbers,
+       not an axis. */
+    const step = div === 1
+      ? (top > 45 ? 20 : top > 25 ? 10 : 5)
+      : (top > 0.45 ? 0.2 : 0.1);
     const yTop = opts.yMax || Math.ceil(fMax / step) * step;
+    const fmt  = v => div === 1 ? String(Math.round(v)) : v.toFixed(1);
 
     /* Widest label decides the left margin. Guessing it clips "100"
        and nobody notices until the numbers get big. */
-    const ML = 14 + String(yTop).length * 9;
+    const ML = 14 + fmt(yTop).length * 9;
 
     const sx = t => ML + (t / tMax) * (VW - ML - MR);
-    const sy = f => VH - MB - (f / yTop) * (VH - MT - MB);
+    const sy = f => VH - MB - (val(f) / yTop) * (VH - MT - MB);
 
     const svg = el('svg', {
       viewBox: `0 0 ${VW} ${VH}`,
@@ -100,13 +117,16 @@ export class TraceChart {
        Behind everything, and quiet. Labels sit in the left margin so
        no gridline has to break for them. */
     const grid = el('g', { class: 'trace-grid-g' });
-    for (let f = 0; f <= yTop; f += step) {
+    const lines = Math.round(yTop / step);
+    for (let i = 0; i <= lines; i++) {
+      const v = i * step;
+      const y = VH - MB - (v / yTop) * (VH - MT - MB);
       grid.appendChild(el('line', {
-        x1: ML, x2: VW - MR, y1: sy(f), y2: sy(f),
-        class: f === 0 ? 'trace-axis' : 'trace-grid'
+        x1: ML, x2: VW - MR, y1: y, y2: y,
+        class: i === 0 ? 'trace-axis' : 'trace-grid'
       }));
-      const label = el('text', { x: ML - 6, y: sy(f) + 3.5, class: 'trace-tick' });
-      label.textContent = String(f);
+      const label = el('text', { x: ML - 6, y: y + 3.5, class: 'trace-tick' });
+      label.textContent = fmt(v);
       grid.appendChild(label);
     }
     svg.appendChild(grid);
@@ -136,35 +156,55 @@ export class TraceChart {
     }
 
     /* ── the trace ───────────────────────────────────────── */
-    /* A hang with two or three readings in it has no shape to draw.
-       Joining them makes a near-vertical slash from the floor to the
-       peak and back, which reads as a rendering fault rather than what
-       it is: a rep the radio mostly missed. Those get their readings
-       as dots and no line. */
-    const SPARSE = 6;
-    const lines = el('g', { class: 'trace-lines' });
+    /* At a phone's width a 24-rep trace is a grey picket fence and the
+       tail — the reps the answer comes from — is the first thing to go.
+       The window marks alone carry the same numbers legibly, so that
+       is what a narrow chart draws. */
+    const marksOnly = opts.marksOnly || VW < 420;
+
+    /* Each rep is clipped to its plateau before being drawn. The
+       readings either side of a hang are the athlete taking hold and
+       letting go: a 50 kg swing between two samples that says nothing
+       about critical force, and drawn as a near-vertical slash it is
+       the one thing that still makes a sparse card look broken. */
+    const plateau = (seg, floor) => {
+      const pts = seg.points;
+      let a = 0, b = pts.length - 1;
+      while (a < b && pts[a].f < floor) a++;
+      while (b > a && pts[b].f < floor) b--;
+      return pts.slice(a, b + 1);
+    };
+
+    const lineG = el('g', { class: 'trace-lines' });
     const loose = [];
-    trace.segments.forEach(seg => {
-      if (seg.points.length >= SPARSE) {
-        lines.appendChild(el('polyline', {
-          points: seg.points.map(p => `${sx(p.t).toFixed(1)},${sy(p.f).toFixed(1)}`).join(' '),
-          class: 'trace-line'
-        }));
-      } else {
-        loose.push(...seg.points);
-      }
-    });
-    svg.appendChild(lines);
+    if (!marksOnly) {
+      trace.segments.forEach((seg, i) => {
+        const bar = trace.bars[i];
+        const floor = bar && bar.average > 0 ? bar.average * 0.25 : 0;
+        const kept = trace.segments.length > 1 ? plateau(seg, floor) : seg.points;
+        if (kept.length >= 2) {
+          lineG.appendChild(el('polyline', {
+            points: kept.map(p => `${sx(p.t).toFixed(1)},${sy(p.f).toFixed(1)}`).join(' '),
+            class: 'trace-line'
+          }));
+        }
+        /* Too few to be a shape: show them as the readings they are. */
+        if (kept.length < SPARSE) loose.push(...kept);
+      });
+    }
+    svg.appendChild(lineG);
 
     /* One dot per reading, but only where they would not merge into a
        bar of ink. At 24 reps across one screen they usually would, so
        usually there are none — the line is already every reading. */
-    const spacing = (VW - ML - MR) / Math.max(pts.length, 1);
-    const dotted = spacing > 4 ? pts : loose;
-    if (dotted.length) {
+    /* Only on the reps that are too sparse to draw as a line. On a
+       dense rep every reading is already a vertex of the polyline, and
+       a dot on each one just beads the trace and pushes the noise back
+       up above the measurement in the stack. */
+    if (loose.length) {
       const dots = el('g', { class: 'trace-dots' });
-      dotted.forEach(p => dots.appendChild(el('circle', {
-        cx: sx(p.t).toFixed(1), cy: sy(p.f).toFixed(1), r: 1.4
+      loose.forEach(p => dots.appendChild(el('circle', {
+        cx: sx(p.t).toFixed(1), cy: sy(p.f).toFixed(1), r: 1.3
       })));
       svg.appendChild(dots);
     }
@@ -199,9 +239,11 @@ export class TraceChart {
     const lastRep = trace.bars[trace.bars.length - 1].rep;
     trace.bars.forEach(b => {
       if (b.rep !== 1 && b.rep !== lastRep && b.rep % 6 !== 0) return;
-      const t = el('text', {
-        x: (sx(b.from) + sx(b.to)) / 2, y: VH - MB + 14, class: 'trace-rep-n'
-      });
+      const x = (sx(b.from) + sx(b.to)) / 2;
+      ticks.appendChild(el('line', {
+        x1: x, x2: x, y1: VH - MB, y2: VH - MB + 3, class: 'trace-rep-tick'
+      }));
+      const t = el('text', { x, y: VH - MB + 15, class: 'trace-rep-n' });
       t.textContent = b.rep;
       ticks.appendChild(t);
     });
@@ -214,9 +256,14 @@ export class TraceChart {
        label positioned over the chart instead. */
     if (opts.cf > 0) {
       const tag = document.createElement('span');
-      tag.className = 'trace-cf-tag';
+      /* On a narrow chart the right-hand end is where the reps the
+         number comes from are, and an opaque label there covers the
+         very thing it is naming. */
+      tag.className = 'trace-cf-tag' + (marksOnly ? ' left' : '');
       tag.style.top = `${(sy(opts.cf) / VH) * 100}%`;
-      tag.textContent = `CF ${opts.cf.toFixed(1)} kg`;
+      tag.textContent = div === 1
+        ? `CF ${opts.cf.toFixed(1)} kg`
+        : `CF ${(opts.cf / div).toFixed(2)}×`;
       host.appendChild(tag);
     }
 
