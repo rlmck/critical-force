@@ -1,0 +1,12 @@
+{
+  "projects": {
+    "default": "coach-climbing-app"
+  },
+  "targets": {
+    "coach-climbing-app": {
+      "hosting": {
+        "cf": ["critical-force"]
+      }
+    }
+  }
+}
