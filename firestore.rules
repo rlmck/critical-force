@@ -1,0 +1,58 @@
+rules_version = '2';
+
+/* ══════════════════════════════════════════════════════════════
+   Critical Force — access control
+
+   One shared space. Every test is visible to everyone who opens the
+   app, and anyone who opens it can record one. That is the design and
+   not an oversight: this is a load cell in a gym, and the friction of
+   accounts buys nothing when the people in the room are the people
+   who should see the numbers.
+
+   What the rules do buy is a floor. `signedIn()` here means an
+   anonymous account minted by the app itself — nobody types anything
+   — so the collection is not simply open to the internet, and a
+   document has to look like a test before it is accepted. It stops
+   drive-by writes and malformed data. It is not a wall, and nothing
+   in here should be read as one: do not put anything in this project
+   that would matter if a stranger read it.
+
+   This project shares nothing with the Coach app — separate project,
+   separate database, separate accounts. Tests reach Coach as a file
+   somebody uploads, and never through here.
+   ══════════════════════════════════════════════════════════════ */
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+
+    match /tests/{testId} {
+      allow read: if signedIn();
+
+      /* Validated on the fields every reader depends on. `timestamp`
+         is the sort key for the history screen and the id is built
+         from it, so a test without one is a test no screen can place.
+         The rest is the shape toDataset() insists on — better a
+         refused write than a row that breaks the list it lands in. */
+      allow create, update: if signedIn()
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 60
+        && request.resource.data.timestamp is string
+        && request.resource.data.hand in ['left', 'right']
+        && request.resource.data.grip is string
+        && request.resource.data.criticalForce is number
+        && request.resource.data.criticalForce >= 0
+        && request.resource.data.criticalForce < 200
+        && request.resource.data.allReps is list
+        && request.resource.data.allReps.size() > 0;
+
+      allow delete: if signedIn();
+    }
+
+    /* Anything not named above is closed. */
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

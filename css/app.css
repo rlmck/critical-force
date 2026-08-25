@@ -1,0 +1,879 @@
+/* == app.css -- what the app is made of. =======================
+
+   Components, not layout. Every rule here holds for a 5-inch phone
+   and a 27-inch monitor alike: colours, type weights, the shape of a
+   button, how a bar chart draws. Anything that depends on how much
+   room there is -- widths, padding, where the nav sits, how big a
+   heading is -- belongs in desktop.css or mobile.css instead.
+
+   The split is what lets the two layouts be genuinely different
+   without the phone inheriting a squeezed copy of the desktop.
+   ============================================================== */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    background: #1a1a1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+}
+
+.screen {
+    display: none;
+    width: 100%;
+}
+
+.screen.active {
+    display: block;
+}
+
+h1 {
+    text-align: center;
+    color: #fff;
+}
+
+h2 {
+    color: #fff;
+}
+
+/* Setup Screen */
+.setup-container {
+    background: #2a2a2a;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+    position: relative;
+}
+
+.connection-dot {
+    display: none;
+    position: absolute;
+    top: 1.5rem;
+    right: 1.5rem;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 50%;
+    background: #00cc66;
+}
+
+.form-group {
+    margin-bottom: 2rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 1rem;
+    color: #b0b0b0;
+}
+
+input[type="number"],
+input[type="text"] {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 1.2rem;
+    background: #3a3a3a;
+    border: 2px solid #4a4a4a;
+    border-radius: 6px;
+    color: #fff;
+}
+
+input[type="number"]:focus,
+input[type="text"]:focus {
+    outline: none;
+    border-color: #0066cc;
+}
+
+.toggle-group {
+    display: flex;
+    gap: 1rem;
+}
+
+.toggle-btn {
+    flex: 1;
+    padding: 0.75rem;
+    font-size: 1.1rem;
+    background: #3a3a3a;
+    border: 2px solid #4a4a4a;
+    border-radius: 6px;
+    color: #b0b0b0;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.toggle-btn.active {
+    background: #0066cc;
+    border-color: #0066cc;
+    color: #fff;
+}
+
+button {
+    width: 100%;
+    padding: 1rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    background: #0066cc;
+    border: none;
+    border-radius: 6px;
+    color: #fff;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 1rem;
+}
+
+button:hover:not(:disabled) {
+    background: #0052a3;
+}
+
+button:disabled {
+    background: #3a3a3a;
+    color: #666;
+    cursor: not-allowed;
+}
+
+button.secondary {
+    background: #2a2a2a;
+    border: 2px solid #4a4a4a;
+}
+
+button.secondary:hover:not(:disabled) {
+    background: #3a3a3a;
+}
+
+.status-badge {
+    display: inline-block;
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+}
+
+.status-badge.connected {
+    background: #00aa44;
+    color: #fff;
+}
+
+.status-badge.disconnected {
+    background: #aa3333;
+    color: #fff;
+}
+
+/* Active Test Screen */
+.test-container {
+    background: #2a2a2a;
+    padding: 2rem;
+    border-radius: 12px;
+}
+
+.rep-display {
+    text-align: center;
+    font-size: 3rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    color: #fff;
+}
+
+.timer-display {
+    text-align: center;
+    font-size: 4rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.state-label {
+    text-align: center;
+    font-size: 1.5rem;
+    font-weight: 600;
+    padding: 0.75rem;
+    border-radius: 6px;
+    margin-bottom: 1.5rem;
+}
+
+.state-label.countdown {
+    background: #ffaa00;
+    color: #000;
+}
+
+.state-label.hanging {
+    background: #cc3333;
+    color: #fff;
+}
+
+.state-label.rest {
+    background: #3366cc;
+    color: #fff;
+}
+
+.live-weight {
+    text-align: center;
+    font-size: 2rem;
+    margin-bottom: 1rem;
+    color: #00cc66;
+}
+
+.signal-indicator {
+    text-align: center;
+    padding: 0.5rem;
+    background: #ffaa00;
+    color: #000;
+    border-radius: 6px;
+    margin-bottom: 1rem;
+    display: none;
+}
+
+.signal-indicator.visible {
+    display: block;
+}
+
+.chart-container {
+    margin-top: 2rem;
+    padding: 1rem;
+    background: #1a1a1a;
+    border-radius: 6px;
+}
+
+.chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    height: 200px;
+    padding: 10px 0;
+}
+
+.bar {
+    flex: 1;
+    background: #4a4a4a;
+    border-radius: 3px 3px 0 0;
+    position: relative;
+    min-height: 2px;
+    transition: height 0.3s;
+}
+
+.bar.cf-rep {
+    background: #00cc66;
+}
+
+.bar.unreliable {
+    background: #ff9933;
+}
+
+.bar.cf-rep.unreliable {
+    background: #ffaa44;
+}
+
+.bar-label {
+    position: absolute;
+    bottom: -20px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 0.7rem;
+    color: #666;
+}
+
+.warning-message {
+    background: #ff9933;
+    color: #000;
+    padding: 1rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+    font-weight: 600;
+}
+
+/* ── Immersive phase stage (active test) ── */
+#testScreen.screen {
+    max-width: none;
+}
+
+.phase-stage {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    background: #101418;
+    transition: background 0.45s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    --phase-color: #4a4a4a;
+    --phase-glow: rgba(255, 255, 255, 0.35);
+}
+
+body.phase-countdown .phase-stage {
+    background: #241a02;
+    --phase-color: #ffaa00;
+    --phase-glow: rgba(255, 170, 0, 0.55);
+}
+
+body.phase-hanging .phase-stage {
+    background: #04231a;
+    --phase-color: #00c46a;
+    --phase-glow: rgba(0, 196, 106, 0.55);
+}
+
+body.phase-rest .phase-stage {
+    background: #08152c;
+    --phase-color: #2f6fe0;
+    --phase-glow: rgba(47, 111, 224, 0.55);
+}
+
+/* The sliding sheet of colour: rises during a pull, drains during rest */
+.phase-fill {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 0%;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 45%),
+        var(--phase-color);
+    transition: height 1s linear, background 0.45s ease;
+}
+
+/* Bright leading edge on the water line */
+.phase-fill::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 5px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 0 28px 8px var(--phase-glow);
+}
+
+body.phase-hanging .phase-fill {
+    animation: phase-pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes phase-pulse {
+    0%, 100% { filter: brightness(1); }
+    50%      { filter: brightness(1.18); }
+}
+
+.phase-content {
+    position: relative;
+    z-index: 2;
+    width: 100%;
+    max-width: 900px;
+    padding: 2rem 1.5rem;
+    text-align: center;
+    text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+    pointer-events: none;
+}
+
+.phase-rep {
+    font-size: 1.1rem;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.75);
+    margin-bottom: 0.75rem;
+}
+
+.phase-label {
+    font-size: clamp(2rem, 8vw, 4.5rem);
+    font-weight: 800;
+    letter-spacing: 0.18em;
+    color: #fff;
+    line-height: 1;
+}
+
+.phase-label.enter {
+    animation: phase-label-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes phase-label-in {
+    from { opacity: 0; transform: translateY(28px) scale(0.94); }
+    to   { opacity: 1; transform: none; }
+}
+
+.phase-timer {
+    font-size: clamp(6rem, 26vw, 17rem);
+    font-weight: 800;
+    line-height: 0.95;
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+}
+
+.phase-weight {
+    font-size: clamp(1.4rem, 5vw, 2.6rem);
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.92);
+    min-height: 1.4em;
+}
+
+.phase-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 84px;
+    margin-top: 2rem;
+    opacity: 0.85;
+}
+
+.phase-chart .bar {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+.phase-chart .bar.cf-rep {
+    background: rgba(255, 255, 255, 0.55);
+}
+
+.phase-chart .bar.unreliable {
+    background: #ff9933;
+}
+
+.phase-stage .signal-indicator {
+    max-width: 260px;
+    margin: 0 auto 1rem;
+}
+
+/* Results Screen */
+.results-container {
+    background: #2a2a2a;
+    border-radius: 12px;
+}
+
+.cf-display {
+    text-align: center;
+    font-size: 4rem;
+    font-weight: 700;
+    color: #00cc66;
+    margin-bottom: 2rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.metric-card {
+    background: #3a3a3a;
+    padding: 1.5rem;
+    border-radius: 6px;
+    text-align: center;
+}
+
+.metric-label {
+    font-size: 0.9rem;
+    color: #b0b0b0;
+    margin-bottom: 0.5rem;
+}
+
+.metric-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.cf-reps {
+    background: #3a3a3a;
+    padding: 1.5rem;
+    border-radius: 6px;
+    margin-bottom: 2rem;
+}
+
+.cf-reps h3 {
+    margin-bottom: 1rem;
+    color: #00cc66;
+}
+
+.cf-rep-values {
+    display: flex;
+    justify-content: space-around;
+    font-size: 1.2rem;
+}
+
+.results-chart {
+    position: relative;
+    margin-bottom: 2rem;
+}
+
+.cf-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: #00cc66;
+    pointer-events: none;
+}
+
+.cf-line-label {
+    position: absolute;
+    right: 10px;
+    top: -10px;
+    font-size: 0.8rem;
+    color: #00cc66;
+}
+
+.button-group {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+}
+
+/* Nav */
+.main-nav {
+    z-index: 100;
+    background: #1e1e1e;
+    display: none;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.main-nav.visible {
+    display: flex;
+}
+
+.main-nav .nav-btn {
+    width: auto;
+    padding: 0.35rem 1.1rem;
+    font-size: 0.88rem;
+    font-weight: 500;
+    background: transparent;
+    border: 1px solid #444;
+    border-radius: 4px;
+    color: #999;
+    cursor: pointer;
+    margin-top: 0;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+}
+
+.main-nav .nav-btn:hover:not(:disabled) {
+    background: #2a2a2a;
+    color: #ddd;
+    border-color: #555;
+}
+
+.main-nav .nav-btn.active {
+    background: #0066cc;
+    border-color: #0066cc;
+    color: #fff;
+}
+
+/* Compare Screen */
+.compare-container {
+    background: #2a2a2a;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+}
+
+.upload-area {
+    border: 2px dashed #4a4a4a;
+    border-radius: 8px;
+    padding: 2rem;
+    text-align: center;
+    margin-bottom: 2rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.upload-area:hover, .upload-area.drag-over {
+    border-color: #0066cc;
+    background: #252525;
+}
+
+.upload-area label {
+    display: block;
+    cursor: pointer;
+    color: #b0b0b0;
+    font-size: 1rem;
+    width: auto;
+    padding: 0;
+    background: none;
+    border: none;
+    margin-top: 0;
+    font-weight: 400;
+}
+
+.upload-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+    color: #666;
+}
+
+.upload-hint {
+    font-size: 0.85rem;
+    color: #666;
+    margin-top: 0.4rem;
+}
+
+.compare-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.compare-card {
+    background: #3a3a3a;
+    border-radius: 8px;
+    padding: 1.2rem;
+}
+
+.compare-card-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.3rem;
+}
+
+.card-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.compare-name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.compare-hand {
+    font-size: 0.85rem;
+    color: #888;
+    margin-left: auto;
+}
+
+.compare-date {
+    font-size: 0.8rem;
+    color: #666;
+    margin-bottom: 1rem;
+}
+
+.compare-metrics {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.compare-metric {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+}
+
+.compare-metric-label {
+    font-size: 0.8rem;
+    color: #888;
+}
+
+.compare-metric-value {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: #ddd;
+}
+
+.compare-error {
+    background: #3a2020;
+    border: 1px solid #663333;
+    border-radius: 6px;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #f08080;
+    grid-column: 1 / -1;
+}
+
+/* Overlay chart */
+.overlay-section {
+    margin-bottom: 2rem;
+}
+
+.overlay-section h2 {
+    font-size: 1.1rem;
+    color: #aaa;
+    font-weight: 500;
+    margin-bottom: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.overlay-chart-container {
+    background: #1a1a1a;
+    border-radius: 6px;
+    padding: 0.5rem 0;
+    overflow: hidden;
+}
+
+.overlay-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem 1.5rem;
+    margin-top: 0.75rem;
+    padding: 0 0.25rem;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 20px;
+    height: 3px;
+    border-radius: 2px;
+    flex-shrink: 0;
+}
+
+.legend-label {
+    font-size: 0.85rem;
+    color: #bbb;
+}
+
+/* Live Reading Screen */
+.live-reading-weight {
+    text-align: center;
+    font-size: 5rem;
+    font-weight: 700;
+    color: #00cc66;
+    margin-bottom: 0.25rem;
+}
+
+.live-reading-max {
+    text-align: center;
+    font-size: 3rem;
+    font-weight: 700;
+    color: #fff;
+    margin-top: 1.5rem;
+    margin-bottom: 0.25rem;
+}
+
+.live-reading-label {
+    text-align: center;
+    font-size: 0.9rem;
+    color: #b0b0b0;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* == shared additions ========================================= */
+
+/* -- toast ----------------------------------------------------
+   Replaces alert(). A blocking dialog stops the page, and the scale
+   keeps streaming packets into a state machine that cannot render
+   while it is up. */
+.toast {
+    position: fixed;
+    left: 50%;
+    transform: translate(-50%, 1rem);
+    background: #2f2f2f;
+    color: #f0f0f0;
+    border: 1px solid #4a4a4a;
+    border-left: 3px solid #00cc66;
+    border-radius: 8px;
+    padding: 0.9rem 1.2rem;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    z-index: 300;
+    max-width: min(34rem, calc(100vw - 2rem));
+    font-size: 0.95rem;
+    line-height: 1.45;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.toast.error { border-left-color: #ff8a80; }
+.toast.shown {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+/* -- history --------------------------------------------------
+   One row per saved test, and the row is the control: tapping it
+   adds the test to the overlay. A separate checkbox would be a
+   second thing to hit on a phone for no extra meaning. */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.history-row {
+    --dot: #4a4a4a;
+    display: grid;
+    grid-template-columns: auto 1fr auto auto;
+    align-items: center;
+    gap: 0.85rem;
+    width: 100%;
+    margin: 0;
+    text-align: left;
+    background: #232323;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    color: #e0e0e0;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+}
+.history-row:hover { background: #282828; }
+.history-row.selected {
+    border-color: var(--dot);
+    background: #262626;
+}
+.history-dot {
+    width: 0.7rem;
+    height: 0.7rem;
+    border-radius: 50%;
+    background: #3a3a3a;
+    flex: none;
+}
+.history-row.selected .history-dot { background: var(--dot); }
+.history-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+.history-who {
+    color: #fff;
+    font-weight: 600;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.history-when { color: #8a8a8a; }
+.history-cf {
+    color: #fff;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+.history-ratio {
+    color: #8a8a8a;
+    font-variant-numeric: tabular-nums;
+}
+.history-empty {
+    color: #8a8a8a;
+    text-align: center;
+    padding: 2rem 1rem;
+}
+
+/* A result that came out of a file rather than the database is still
+   a result, but it is worth being able to tell. */
+.warning-message {
+    background: #3a2f1a;
+    border: 1px solid #7a5c1a;
+    border-radius: 6px;
+    color: #ffd479;
+    padding: 0.85rem 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+}
+
+/* -- switching layout -----------------------------------------
+   Small, and at the bottom. The automatic choice is right almost
+   every time; this is for the time it isn't. */
+.layout-switch {
+    display: block;
+    text-align: center;
+    color: #6a6a6a;
+    font-size: 0.85rem;
+    margin-top: 1.5rem;
+    text-decoration: none;
+}
+.layout-switch:hover { color: #b0b0b0; text-decoration: underline; }

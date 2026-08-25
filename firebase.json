@@ -1,10 +1,22 @@
 {
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "emulators": {
+    "auth": { "port": 9099 },
+    "firestore": { "port": 8080 },
+    "hosting": { "port": 5000 },
+    "ui": { "enabled": true, "port": 4000 },
+    "singleProjectMode": true
+  },
   "hosting": {
-    "target": "cf",
     "public": ".",
     "ignore": [
       "firebase.json",
       ".firebaserc",
+      "firestore.rules",
+      "firestore.indexes.json",
       "README.md",
       "CLAUDE.md",
       "**/.*",
@@ -13,32 +25,35 @@
       "*.json"
     ],
     "_ignoreComment": [
-      "Both dot patterns are needed and neither covers the other. **/.*",
-      "excludes a dotfile and the dot-directory entry itself; it does not",
-      "exclude what is inside one, because .git/config has a last segment",
-      "starting with no dot. **/.*/** is that other half. Without both,",
-      "the whole of .git is served publicly.",
+      "Both dot patterns are needed and neither covers the other.",
+      "**/.* excludes a dotfile and the dot-directory entry itself; it",
+      "does not exclude what is inside one, because .git/config has a",
+      "last segment starting with no dot. **/.*/** is that other half.",
+      "Without both, the whole of .git is served publicly.",
       "",
-      "*.json keeps test exports off the site. They are gitignored for the",
-      "same reason and this is the other door into the same room."
+      "*.json keeps test exports off the site. They are gitignored for",
+      "the same reason and this is the other door into the same room."
+    ],
+    "rewrites": [
+      { "source": "/d", "destination": "/desktop.html" },
+      { "source": "/m", "destination": "/mobile.html" }
+    ],
+    "_rewriteComment": [
+      "Two layouts, two addresses, and / is a doorway that picks one.",
+      "Short paths because they get typed on a phone at a board."
     ],
     "_cacheComment": [
       "Where two rules match one file the LAST wins, so broad globs go",
       "first and specific ones last.",
       "",
-      "no-cache is the default and does not mean 'do not store' — it means",
-      "'revalidate before use'. A repeat visit gets a 304 and a redeploy",
-      "reaches a phone on the next launch instead of whenever an expiry",
-      "happens to lapse. Long max-age belongs only to files whose contents",
-      "genuinely never change."
+      "no-cache is the default and does not mean 'do not store' — it",
+      "means 'revalidate before use'. A repeat visit gets a 304 and a",
+      "redeploy reaches a phone on the next launch instead of whenever",
+      "an expiry happens to lapse."
     ],
     "headers": [
       {
         "source": "**",
-        "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
-      },
-      {
-        "source": "/",
         "headers": [{ "key": "Cache-Control", "value": "no-cache" }]
       }
     ]

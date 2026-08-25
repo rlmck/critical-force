@@ -1,0 +1,54 @@
+/* == desktop.css -- the layout for a screen with room. =========
+
+   A laptop on a bench next to the board. There is space for the
+   numbers and the chart at the same time, so nothing is hidden
+   behind a tab, and the reading distance is a metre rather than
+   thirty centimetres — which is why the type here is smaller than
+   the phone's, not larger.
+   ============================================================== */
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.screen { max-width: 860px; }
+
+h1 { font-size: 2.5rem; margin-bottom: 2rem; }
+h2 { font-size: 1.8rem; margin-bottom: 1.5rem; }
+h3 { font-size: 1.15rem; }
+
+.setup-container,
+.results-container,
+.compare-container { padding: 3rem; }
+
+/* A fixed bar across the top: there is always room for it, and it
+   never covers content because the body is centred with padding. */
+.main-nav {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    border-bottom: 1px solid #333;
+    padding: 0.5rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.history-row { padding: 0.85rem 1rem; }
+.history-when { font-size: 0.85rem; }
+.history-cf { font-size: 1.1rem; }
+.history-ratio { font-size: 0.95rem; min-width: 3.5rem; text-align: right; }
+
+.toast { bottom: 1.5rem; }
+
+/* The test screen is full-bleed on both layouts — a phase colour
+   that stops short of the edge stops reading as a phase. */
+#testScreen.screen { max-width: none; }

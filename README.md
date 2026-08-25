@@ -1,16 +1,33 @@
 # Critical Force
 
-Two tools that read a WH-C06 Bluetooth load cell in the browser and turn
-what a finger pulls into something a coach can act on.
+A WH-C06 load cell, read in the browser, turned into a number a
+climber can train against.
 
-**No build step.** `index.html` carries its own styles and its own module;
-the only import is the scale driver. Nothing to install, nothing to bundle.
+Live at <https://critical-force-test.web.app>.
+
+**No build step.** ES modules loaded straight from the page. Nothing
+to install, nothing to bundle, no package.json.
+
+## Two versions
+
+Not one layout that stretches — two, because the two situations are
+not the same one:
 
 | | |
 |---|---|
-| **`index.html`** | The critical-force test — 24 reps of 7s on, 3s off, with a 10s lead-in. Critical force is the mean of the closing three reps, read off a 2–6s window inside each hang so the grab and the drop-off don't count. |
-| **`jade-arc.html`** | An ARC timer for 20 minutes of low-intensity repeaters against a target weight, with the live reading colour-coded against it. |
-| **`bluetooth-scale.js`** | The WH-C06 driver both share. Weight arrives in BLE advertisement packets, not a GATT characteristic — see below. |
+| **[/d](https://critical-force-test.web.app/d)** — desktop | A laptop on a bench. Room for the numbers and the charts at once, read from a metre away. Both decay-curve overlays, the CF:BW column in the history list, drag-and-drop for files. |
+| **[/m](https://critical-force-test.web.app/m)** — mobile | A phone at the board. The timer is 128px, every control clears 48px, the nav is a bottom bar under your thumb, and the screen is held awake for the four minutes a test takes. One chart, not two. |
+
+`/` picks one and redirects: what you asked for in the URL
+(`?layout=m`), then what you chose last time, then a guess — narrow
+screen **and** a coarse pointer. A narrow window on a laptop is still
+a laptop. Either page has a switch link at the foot of it, and the
+choice sticks.
+
+Underneath they are the same app. `js/engine.js` is the protocol and
+the arithmetic and knows nothing about screens; `js/views/base.js` is
+every behaviour both layouts share. A layout is markup, CSS, and about
+twenty lines of wiring.
 
 ## Running it
 
@@ -27,7 +44,7 @@ Then <http://localhost:5178>.
 weight in its manufacturer advertisement data, so the driver reads it
 with `watchAdvertisements()` rather than connecting to a service. That
 API sits behind `chrome://flags/#enable-experimental-web-platform-features`.
-Without the flag the connect button raises `watchAdvertisements() not
+Without the flag, connecting raises `watchAdvertisements() not
 available`; on iOS Safari there is no Web Bluetooth to raise it with.
 
 `localhost` and HTTPS are both secure contexts. Any other plain-HTTP
@@ -38,30 +55,103 @@ around as a folder.
 
 The load cell is polled continuously, but not every reading counts.
 
-- **The averaging window is 2–6s of each 7s hang.** The first two seconds
-  are the athlete loading the edge and the last is them coming off; neither
-  is the rep.
-- **Readings under 1kg are dropped** as noise rather than recorded as a
-  weak pull.
-- **A rep with fewer than 3 surviving readings is flagged unreliable.** It
-  still carries its average, because the flag is a caveat for whoever reads
-  the test and not grounds for throwing a rep away.
-- **A rep that averages zero is missing data, not a rep at zero force.**
-  Anything drawing it has to tell the two apart.
+- **The averaging window is 2–6s of each 7s hang.** The first two
+  seconds are the athlete loading the edge and the last is them coming
+  off; neither is the rep.
+- **Readings under 1kg are dropped** as noise rather than recorded as
+  a weak pull.
+- **A rep with fewer than 3 surviving readings is flagged unreliable.**
+  It still carries its average, because the flag is a caveat for
+  whoever reads the test and not grounds for throwing a rep away.
+- **A rep that averages zero is missing data, not a rep at zero
+  force.** Anything drawing it has to tell the two apart.
 
 Reps 22, 23 and 24 are what critical force is read off. The ARC zone
-ceiling is 80% of it.
+ceiling is 80% of it. All of that is `computeResults()` in
+`js/analysis.js`, in one place, so a test on screen tonight and the
+same test read back next month cannot drift apart.
 
-## Where the results go
+## The database
 
-A finished test is a JSON file holding every headline number, the per-rep
-breakdown, and the raw trace of every reading the scale emitted — including
-the countdown and the rests, so the whole session can be replayed.
+Its own Firebase project, `critical-force-test`. **Nothing is shared
+with [climbing-coach](https://github.com/rlmck/climbing-coach)** — separate
+project, separate database, separate rules, separate accounts.
 
-Those files are the input to [climbing-coach](https://github.com/rlmck/climbing-coach),
-which parses them in `js/cftest.js` and files them onto an athlete's record.
-Its parser reads the athlete, grip and hand out of the *filename*.
+One collection, `tests`, one document per test, keyed by the test's
+own timestamp with the athlete, hand and grip, so pressing Save twice
+corrects the record rather than doubling it.
 
-Test exports are gitignored. They are real people's bodyweight and finger
-strength, and they belong on an athlete's record rather than in this
+**One shared space, and no login.** Every test is visible to everyone
+who opens the app. The app signs itself in anonymously so the rules
+have something to check other than "anybody" and a document has to
+look like a test before it is accepted — that stops drive-by writes,
+and it is a floor rather than a wall. Do not put anything in this
+project that would matter if a stranger read it.
+
+**A test is downloaded as well as saved, always.** Four minutes of
+hanging does not come round again, so the file is written whatever the
+database did — and the message afterwards says which of the two
+actually happened rather than a flat "saved".
+
+### Setting the backend up
+
+`firebase deploy --only firestore,hosting` covers everything except
+one console toggle:
+
+> **Authentication → Sign-in method → Anonymous → Enable**
+
+Until that is on, saving fails with *"Anonymous sign-in is switched off
+for this Firebase project"* and results download as files. The test
+itself is unaffected.
+
+Blank the `apiKey` in `js/config.js` and the app runs with no backend
+at all, which is the same fallback path deliberately.
+
+## Getting a test into Coach
+
+The one thing connecting this project to the Coach app, and a one-way
+street: a file goes out, nothing comes back.
+
+Coach reads the athlete, the grip and the hand out of the *filename*
+and nowhere else:
+
+```
+Maks_half_crimp_left_cf-test-2026-07-20T18-35-30.json
+name ─┘ grip ────┘ hand ┘        stamp ┘
+```
+
+This app used to emit `cf-test-{stamp}_{name}_{hand}_{grip}.json`,
+which Coach's parser reads as `{athlete: null, grip: null, hand: null}`
+— every field wrong, silently, with the grip defaulting to half-crimp.
+Every export had to be renamed by hand. It now emits the format above.
+
+Grips go out as Coach's own tokens: `3-finger-drag` underscored is
+`3_finger_drag`, which Coach does not know, so it matches the trailing
+`drag` and swallows `3 finger` into the athlete's name.
+
+Older exports that recorded neither name nor grip still load here —
+`fromFilename()` in `js/results.js` reads both filename shapes.
+
+Test exports are gitignored. They are real people's bodyweight and
+finger strength, and they belong in the database rather than in this
 history.
+
+## Layout
+
+| | |
+|---|---|
+| `index.html` | The doorway. Picks a layout and redirects. |
+| `desktop.html` · `mobile.html` | The two layouts. Same element ids where they mean the same thing. |
+| `css/app.css` | Components — true at any size. |
+| `css/desktop.css` · `css/mobile.css` | Everything that depends on how much room there is. |
+| `js/engine.js` | The protocol, the arithmetic, the scale. Knows nothing about screens. |
+| `js/analysis.js` | What the reps add up to, and the decay-curve chart. |
+| `js/results.js` | A finished test as a document and as a file. The Coach seam. |
+| `js/store.js` | Firestore: where a test goes and how it comes back. |
+| `js/layout.js` | Which of the two versions you get. |
+| `js/views/base.js` | Every behaviour both layouts share. |
+| `js/views/desktop.js` · `mobile.js` | The wiring that says which page this is. |
+| `bluetooth-scale.js` | The WH-C06 driver. |
+
+`jade-arc.html` is a separate ARC timer sharing only the scale driver.
+It is not part of this app and none of the above applies to it.

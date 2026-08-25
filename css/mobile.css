@@ -1,0 +1,139 @@
+/* == mobile.css -- the layout for a phone at the board. ========
+
+   Different assumptions from the desktop, not smaller versions of
+   them:
+
+     · It is read at arm's length, mid-effort, by someone whose eyes
+       are watering. The live numbers are much larger here than on
+       desktop, not smaller.
+     · It is operated by a thumb, often a chalky one. Every control
+       is at least 48px and the important ones sit low, where a
+       thumb reaches without regripping the phone.
+     · There is no room for two things at once, so screens stack and
+       the nav goes to the bottom bar rather than a top strip.
+     · The address bar comes and goes, so full-height uses dvh. vh
+       on a phone measures a viewport that isn't there yet.
+   ============================================================== */
+
+body {
+    padding: 0 0 5rem;          /* room for the bottom nav */
+    -webkit-text-size-adjust: 100%;
+}
+
+.screen {
+    max-width: none;
+    padding: 1rem;
+}
+
+h1 { font-size: 1.6rem; margin-bottom: 1.25rem; }
+h2 { font-size: 1.15rem; margin-bottom: 0.85rem; }
+h3 { font-size: 1rem; }
+
+.setup-container,
+.results-container,
+.compare-container {
+    padding: 1.25rem;
+    box-shadow: none;
+}
+
+/* -- controls -------------------------------------------------
+   16px on inputs is not a type choice: iOS zooms the whole page in
+   when a focused field is smaller, and the zoom does not come back
+   out on its own. */
+input[type="number"],
+input[type="text"] {
+    font-size: 16px;
+    padding: 0.9rem;
+    min-height: 3rem;
+}
+
+button,
+.toggle-btn {
+    min-height: 3rem;
+    font-size: 1.05rem;
+}
+
+.toggle-group { gap: 0.6rem; }
+
+/* -- the bottom bar -------------------------------------------
+   Where a thumb already is. Fixed, and clear of the home indicator
+   on a notched phone. */
+.main-nav {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    top: auto;
+    border-top: 1px solid #333;
+    padding: 0.4rem 0.4rem calc(0.4rem + env(safe-area-inset-bottom));
+    gap: 0.4rem;
+}
+.main-nav .nav-btn {
+    flex: 1;
+    min-height: 3rem;
+    margin: 0;
+}
+
+/* -- the test screen ------------------------------------------
+   The whole point of the phone version. Nothing but the phase, the
+   count and the number, as large as the glass allows. */
+#testScreen.screen { padding: 0; }
+
+.phase-stage { min-height: 100dvh; }
+
+.phase-rep    { font-size: 1rem; letter-spacing: 0.02em; }
+.phase-label  { font-size: 2.75rem; letter-spacing: 0.06em; }
+.phase-timer  { font-size: clamp(6rem, 34vw, 12rem); line-height: 0.95; }
+.phase-weight { font-size: 1.75rem; }
+.phase-chart  { height: 4rem; }
+
+/* -- results --------------------------------------------------
+   One column. Two 200px cards side by side on a 375px screen is
+   two cramped cards, not a comparison. */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+.metric-card { padding: 0.9rem 1rem; }
+.metric-label { font-size: 0.8rem; }
+.metric-value { font-size: 1.5rem; }
+
+.cf-display { font-size: 1.6rem; }
+
+/* Charts are wide by nature. Let them scroll sideways inside their
+   own box rather than making the page scroll sideways. */
+.chart-container,
+.overlay-chart-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.button-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* -- history --------------------------------------------------
+   The ratio column is the first thing to go: it is derivable from
+   the two numbers either side of it, and the row has to stay
+   readable at 320px. */
+.history-row {
+    padding: 0.85rem;
+    grid-template-columns: auto 1fr auto;
+    gap: 0.7rem;
+}
+.history-ratio { display: none; }
+.history-when { font-size: 0.8rem; }
+.history-cf { font-size: 1.05rem; }
+
+.toast {
+    bottom: calc(5rem + env(safe-area-inset-bottom));
+    font-size: 0.9rem;
+}
+
+/* Dropping a file needs a window to drag from. Tapping to browse
+   works on a phone; the drag hint does not. */
+.upload-hint { display: none; }

@@ -1,0 +1,40 @@
+{
+  "indexes": [],
+  "_comment": [
+    "No composite indexes: the history screen sorts on one field.",
+    "",
+    "The fieldOverrides are not an optimisation, they are what makes",
+    "a write succeed at all. Firestore indexes every field it finds,",
+    "including inside arrays, and a document may hold at most 40,000",
+    "index entries. A test carries one entry per rep plus one per raw",
+    "reading — a 24-rep test with a full session trace runs to several",
+    "thousand readings, each a map with its own fields, and the count",
+    "multiplies out past the limit. The write then fails outright.",
+    "",
+    "None of it is ever queried. The traces are read back as part of a",
+    "document that was found by timestamp, never searched through, so",
+    "there is nothing to lose by not indexing them."
+  ],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "tests",
+      "fieldPath": "allReadings",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tests",
+      "fieldPath": "allReps",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tests",
+      "fieldPath": "cfRepValues",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "tests",
+      "fieldPath": "unreliableReps",
+      "indexes": []
+    }
+  ]
+}

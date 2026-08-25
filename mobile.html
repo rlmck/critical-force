@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- viewport-fit=cover so the phase colour reaches the edges on a
+         notched phone; the safe-area insets in mobile.css keep the
+         controls out from under the notch and the home indicator. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="theme-color" content="#1a1a1a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <title>Critical Force Test</title>
+    <link rel="stylesheet" href="css/app.css">
+    <link rel="stylesheet" href="css/mobile.css">
+</head>
+<body>
+    <!-- Setup -->
+    <div id="setupScreen" class="screen active">
+        <div class="setup-container">
+            <div id="connectionDot" class="connection-dot"></div>
+            <h1>Critical Force</h1>
+
+            <div class="form-group">
+                <label for="athleteName">Name</label>
+                <input type="text" id="athleteName" maxlength="40" placeholder="Ross" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+                <label for="bodyweight">Bodyweight (kg)</label>
+                <!-- inputmode decimal gets the numeric pad without the
+                     spinner arrows, which are a poor target for a thumb -->
+                <input type="number" id="bodyweight" min="30" max="200" step="0.1"
+                       inputmode="decimal" placeholder="70.0">
+            </div>
+
+            <div class="form-group">
+                <label>Hand</label>
+                <div class="toggle-group" data-field="hand">
+                    <button type="button" class="toggle-btn active" data-value="left">Left</button>
+                    <button type="button" class="toggle-btn" data-value="right">Right</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Grip</label>
+                <div class="toggle-group" data-field="grip">
+                    <button type="button" class="toggle-btn active" data-value="half-crimp">Half Crimp</button>
+                    <button type="button" class="toggle-btn" data-value="3-finger-drag">3F Drag</button>
+                </div>
+            </div>
+
+            <button id="connectBtn" class="secondary">Connect Scale</button>
+            <button id="beginBtn" disabled>Begin Test</button>
+            <button id="liveReadingBtn" disabled class="secondary">Live Reading</button>
+
+            <a class="layout-switch" data-layout-switch href="desktop.html"></a>
+        </div>
+    </div>
+
+    <!-- Live Reading -->
+    <div id="liveScreen" class="screen">
+        <div class="setup-container">
+            <h1>Live Reading</h1>
+            <div class="live-reading-weight" id="liveCurrentWeight">-- kg</div>
+            <div class="live-reading-label">Current</div>
+            <div class="live-reading-max" id="liveMaxWeight">-- kg</div>
+            <div class="live-reading-label">Max</div>
+            <button id="resetMaxBtn" class="secondary" style="margin-top: 1.5rem;">Reset Max</button>
+            <button id="backToSetupBtn" class="secondary">Back</button>
+        </div>
+    </div>
+
+    <!-- Active Test — the reason the phone layout exists -->
+    <div id="testScreen" class="screen">
+        <div class="phase-stage">
+            <div class="phase-fill" id="phaseFill"></div>
+            <div class="phase-content">
+                <div class="signal-indicator" id="signalIndicator">Signal Weak</div>
+                <div class="phase-rep" id="repDisplay">Rep 1 / 24</div>
+                <div class="phase-label" id="stateLabel">HANG</div>
+                <div class="phase-timer" id="timerDisplay">7</div>
+                <div class="phase-weight" id="liveWeight">--</div>
+                <div class="phase-chart chart" id="liveChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div id="resultsScreen" class="screen">
+        <div class="results-container">
+            <h1>Test Complete</h1>
+            <div class="compare-date" id="resultsSubtitle" style="text-align:center;font-size:0.9rem;margin-bottom:1rem"></div>
+            <div class="warning-message" id="resultsWarning" style="display:none"></div>
+            <div class="cf-display" id="cfDisplay">--</div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">CF:Bodyweight Ratio</div>
+                    <div class="metric-value" id="ratioValue">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">80% CF (ARC Zone)</div>
+                    <div class="metric-value" id="arcValue">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Threshold Zone</div>
+                    <div class="metric-value" id="thresholdValue">--</div>
+                </div>
+            </div>
+
+            <div class="cf-reps">
+                <h3>Critical Force Reps (22, 23, 24)</h3>
+                <div class="cf-rep-values" id="cfRepValues">--</div>
+            </div>
+
+            <div class="chart-container results-chart">
+                <div id="cfLine" class="cf-line"></div>
+                <div class="chart" id="resultsChart"></div>
+            </div>
+
+            <!-- One overlay chart, not two. The ratio view is the same
+                 curve divided by a constant, and a phone has room to
+                 read one of them properly or both of them badly. It is
+                 on the desktop layout. -->
+            <div class="overlay-section">
+                <h2>Decay Curve · Force (kg)</h2>
+                <div id="resultsOverlayChart" class="overlay-chart-container"></div>
+                <div id="resultsOverlayLegend" class="overlay-legend"></div>
+            </div>
+
+            <div class="button-group">
+                <button id="saveBtn">Save Result</button>
+                <button id="retryBtn" class="secondary">Test Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div id="historyScreen" class="screen">
+        <div class="compare-container">
+            <h1>History</h1>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" multiple accept=".json" style="display:none">
+                <label for="fileInput">
+                    <div class="upload-icon">↑</div>
+                    <div>Add result files</div>
+                    <div class="upload-hint"></div>
+                </label>
+            </div>
+
+            <div id="historyList" class="history-list"></div>
+
+            <div id="historyChartSection" class="overlay-section" style="display:none">
+                <h2>Decay Curve · Force (kg)</h2>
+                <div id="historyChart" class="overlay-chart-container"></div>
+                <div id="historyLegend" class="overlay-legend"></div>
+            </div>
+
+            <a class="layout-switch" data-layout-switch href="desktop.html"></a>
+        </div>
+    </div>
+
+    <nav id="mainNav" class="main-nav">
+        <button class="nav-btn" data-screen="setup">Test</button>
+        <button class="nav-btn" data-screen="history">History</button>
+    </nav>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script type="module" src="js/views/mobile.js"></script>
+</body>
+</html>
