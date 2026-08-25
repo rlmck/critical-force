@@ -35,10 +35,13 @@ Serve the folder — not `file://`, which is not a secure context and so
 reaches no Bluetooth at all:
 
 ```bash
-python -m http.server 5178
+python tools/serve.py 5178
 ```
 
-Then <http://localhost:5178>.
+Then <http://localhost:5178>. Use this rather than
+`python -m http.server`: that one sends no `Cache-Control` at all, so
+the browser caches modules heuristically and an edit to one file lands
+while another is served stale.
 
 **Chrome or Edge, with an experimental flag on.** The scale broadcasts
 weight in its manufacturer advertisement data, so the driver reads it
@@ -113,33 +116,46 @@ project, separate database, separate rules, separate accounts.
 One collection, `tests`, one document per test, keyed by the test's
 own timestamp with the athlete, hand and grip.
 
-**One shared space, and no login.** Every test is visible to everyone
-who opens the app. The app signs itself in anonymously so the rules
-have something to check other than "anybody" and a document has to
-look like a test before it is accepted — that stops drive-by writes,
-and it is a floor rather than a wall. Do not put anything in this
-project that would matter if a stranger read it.
+**One shared space, and genuinely no login.** Every test is visible
+to everyone who opens the app, and anyone who opens it can record one.
+There is no sign-in of any kind, not even an invisible one.
+
+What the rules check is the *shape*: a document has to have a name, a
+timestamp, a hand, a grip, a plausible force and a non-empty rep list
+to be accepted. That stops malformed writes and drive-by junk. It
+stops nothing else. **Do not put anything in this project that would
+matter if a stranger read it.**
+
+Deletes are refused outright, so the worst a passer-by can do is add a
+row rather than remove a real test. Remove a bad test from the console.
+
+An earlier version minted an anonymous account so the rules had
+something to check other than "anybody" — but enabling anonymous
+sign-in is a console setting, it was never switched on, and the result
+was an app that silently refused to save anything. A floor that stops
+the app working is worse than no floor.
 
 **A test is downloaded as well as saved, always.** Four minutes of
 hanging does not come round again, so the file is written whatever the
 database did — and the message afterwards says which of the two
 actually happened rather than a flat "saved".
 
+### Importing an old export
+
+Early files record the hand but neither the athlete nor the grip; both
+lived in the filename. Once a test is in the database there is no
+filename any more, so `documentFor()` writes the recovered labelling
+into the document. The device's own numbers are untouched — only the
+labels are filled in.
+
 ### Setting the backend up
 
-`firebase deploy --only firestore,hosting` covers everything except
-one console toggle:
-
-> **Authentication → Sign-in method → Anonymous → Enable**
-
-Until that is on, nothing saves or imports and the History screen says
-so. Files dropped on the page still read, the test itself still runs,
-and results still download. A missing sign-in method fails identically
-every time, so it is not retried after the first attempt — a dropped
-connection still is.
+`firebase deploy --only firestore,hosting` is the whole of it. There
+is no console step.
 
 Blank the `apiKey` in `js/config.js` and the app runs with no backend
-at all, which is the same fallback path deliberately.
+at all: the test works and results download as files. That is the same
+fallback path deliberately.
 
 ## Getting a test into Coach
 
@@ -187,6 +203,7 @@ history.
 | `js/views/base.js` | Every behaviour both layouts share. |
 | `js/views/desktop.js` · `mobile.js` | The wiring that says which page this is. |
 | `bluetooth-scale.js` | The WH-C06 driver. |
+| `tools/serve.py` | The dev server. Sends `no-cache`, so an edit never lands next to a stale module. |
 
 `jade-arc.html` is a separate ARC timer sharing only the scale driver.
 It is not part of this app and none of the above applies to it.
