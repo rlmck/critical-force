@@ -90,9 +90,15 @@ export class TraceChart {
     const top  = opts.yMax || fMax;
     /* Few ticks. Seven labels in a short plot is a stack of numbers,
        not an axis. */
+    /* Tick spacing is a question of how much room the plot has, not
+       of what the numbers are. A tall chart can carry 10-kg lines 47px
+       apart; a 200-unit phone chart cannot. Coarsening it everywhere
+       put every critical force in this set (9.5-24.9 kg) *between*
+       gridlines, so none of them could be read off the axis. */
+    const roomy = VH >= 260;
     const step = div === 1
-      ? (top > 45 ? 20 : top > 25 ? 10 : 5)
-      : (top > 0.45 ? 0.2 : 0.1);
+      ? (top > 60 ? 20 : top > 25 ? (roomy ? 10 : 20) : 5)
+      : (top > 0.6 ? (roomy ? 0.1 : 0.2) : 0.1);
     const yTop = opts.yMax || Math.ceil(fMax / step) * step;
     const fmt  = v => div === 1 ? String(Math.round(v)) : v.toFixed(1);
 
@@ -162,26 +168,37 @@ export class TraceChart {
        is what a narrow chart draws. */
     const marksOnly = opts.marksOnly || VW < 420;
 
-    /* Each rep is clipped to its plateau before being drawn. The
-       readings either side of a hang are the athlete taking hold and
-       letting go: a 50 kg swing between two samples that says nothing
-       about critical force, and drawn as a near-vertical slash it is
-       the one thing that still makes a sparse card look broken. */
-    const plateau = (seg, floor) => {
-      const pts = seg.points;
-      let a = 0, b = pts.length - 1;
-      while (a < b && pts[a].f < floor) a++;
-      while (b > a && pts[b].f < floor) b--;
-      return pts.slice(a, b + 1);
+    /* Each rep's trace is clipped to the middle of its hang before
+       being drawn. The readings either side are the athlete taking
+       hold and letting go — a 30-50 kg swing between two samples
+       200ms apart, carrying nothing about critical force and drawn as
+       a near-vertical slash.
+
+       Clipped by *time*, not by force. A threshold set as a share of
+       the rep's own average scales with it, so on a 48 kg opener it
+       cuts below 12 kg and a genuine 14 kg loading reading survives to
+       join a 48 kg plateau — the slash comes back, just shorter. The
+       hang timings are already known here because the averaging window
+       is placed from them, and 1.5-6.5s is the same slice of every rep
+       whether it is a 50 kg opener or a 12 kg closer. */
+    const KEEP_FROM = 1500, KEEP_TO = 6500;
+    const midHang = (seg, bar) => {
+      if (!bar) return seg.points;
+      const hangStart = bar.from - trace.winStart;
+      return seg.points.filter(p => p.t >= hangStart + KEEP_FROM &&
+                                    p.t <= hangStart + KEEP_TO);
     };
 
     const lineG = el('g', { class: 'trace-lines' });
     const loose = [];
     if (!marksOnly) {
       trace.segments.forEach((seg, i) => {
-        const bar = trace.bars[i];
-        const floor = bar && bar.average > 0 ? bar.average * 0.25 : 0;
-        const kept = trace.segments.length > 1 ? plateau(seg, floor) : seg.points;
+        /* One segment means a whole-session trace, which is already
+           continuous and drops to the floor between reps because that
+           is what happened. Only per-rep segments need clipping. */
+        const kept = trace.segments.length > 1
+          ? midHang(seg, trace.bars[i])
+          : seg.points;
         if (kept.length >= 2) {
           lineG.appendChild(el('polyline', {
             points: kept.map(p => `${sx(p.t).toFixed(1)},${sy(p.f).toFixed(1)}`).join(' '),

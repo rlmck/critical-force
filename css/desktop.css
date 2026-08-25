@@ -26,7 +26,8 @@ h3 { font-size: 1.15rem; }
 
 .setup-container,
 .results-container { padding: 3rem; }
-.compare-container { padding: 2rem 0; }
+/* The nav is fixed and 49px tall; 2rem put the heading 5px under it. */
+.compare-container { padding: 68px 0 2rem; }
 
 /* A fixed bar across the top: there is always room for it, and it
    never covers content because the body is centred with padding. */

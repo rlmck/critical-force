@@ -1018,7 +1018,7 @@ body.phase-hanging .phase-fill {
     max-width: 100%;
 }
 .filter select:hover { color: var(--fg); border-color: #4a4a4a; }
-.filter select:focus { outline: none; border-color: var(--measure); color: var(--fg); }
+.filter select:focus { border-color: var(--measure); color: var(--fg); }
 
 .filter-clear, .ghost-btn {
     width: auto;
@@ -1271,7 +1271,7 @@ body.phase-hanging .phase-fill {
     max-width: 100%;
 }
 .filter select:hover { color: var(--fg); border-color: #4a4a4a; }
-.filter select:focus { outline: none; border-color: var(--measure); color: var(--fg); }
+.filter select:focus { border-color: var(--measure); color: var(--fg); }
 
 .filter-clear, .ghost-btn {
     width: auto;
@@ -1555,6 +1555,7 @@ body.phase-hanging .phase-fill {
     height: 0;
     border-top-width: 2px;
     border-top-style: solid;
+    flex: none;
 }
 .trace-key.line::before       { border-color: #6e6e6e; }
 .trace-key.missing::before    { border-color: #6e6e6e; border-top-style: dashed; }
