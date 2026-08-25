@@ -1,0 +1,20 @@
+node_modules/
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/
+
+# firebase deploy artifacts
+.firebase/
+
+# Local Claude Code settings — machine-specific, not the project's
+.claude/settings.local.json
+
+# Test exports. Real athletes' bodyweight and finger strength, which
+# is the same reason the Coach repo keeps its criticalforce/ folder
+# out of history. A test belongs in Firestore, not in git.
+*.json
+!firebase.json
+!.firebaserc
+!firestore.indexes.json

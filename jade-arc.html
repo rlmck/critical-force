@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARC Timer</title>
+    <style>
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:     #0f0f0f;
+            --text:   #ffffff;
+            --green:  #00a846;
+            --yellow: #ffd600;
+            --red:    #e53935;
+        }
+
+        html, body {
+            width: 100%; height: 100%;
+            background: var(--bg);
+            color: var(--text);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        /* ── App layout ──────────────────────────── */
+        #app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 1.5rem 2rem 1rem;
+            gap: 0.5rem;
+        }
+
+        /* ── Top bar ─────────────────────────────── */
+        #topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        #connect-btn {
+            padding: 0.45rem 1.2rem;
+            border-radius: 999px;
+            border: 2px solid currentColor;
+            background: transparent;
+            color: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            transition: opacity 0.15s;
+        }
+        #connect-btn:hover    { opacity: 0.75; }
+        #connect-btn:disabled { opacity: 0.35; cursor: default; }
+        #connect-btn.connected { border-color: var(--green); color: var(--green); }
+
+        #elapsed {
+            font-size: 1.3rem;
+            font-variant-numeric: tabular-nums;
+            font-weight: 300;
+            letter-spacing: 0.08em;
+            opacity: 0.65;
+        }
+
+        /* ── Main display ────────────────────────── */
+        #main-display {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex: 1;
+            gap: 0.6rem;
+        }
+
+        /* Interval label (HANG / REST / countdown) */
+        #interval-row {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.2rem;
+            opacity: 0;
+            pointer-events: none;
+        }
+        body:not(.state-idle) #interval-row { opacity: 1; }
+
+        #interval-label {
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            opacity: 0.55;
+        }
+
+        #countdown {
+            font-size: 18vw;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            line-height: 1;
+            min-width: 2ch;
+            text-align: center;
+        }
+
+        /* ── Horizontal force gauge ──────────────── */
+        #gauge-wrap {
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+        body.state-idle #gauge-wrap { opacity: 0.4; }
+
+        /* Row: bar + readout number */
+        #gauge-main {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            gap: 1.5rem;
+            width: 100%;
+        }
+
+        /* Bar column: fills from left */
+        #gauge-column {
+            position: relative;
+            flex: 1;
+            height: 12vh;
+            margin-bottom: 1.6rem;
+        }
+
+        /* Track: clips the fill to a rounded rect */
+        #gauge-clip {
+            position: absolute;
+            inset: 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 0.65rem;
+            overflow: hidden;
+        }
+        /* Fill: grows from left */
+        #gauge-fill {
+            position: absolute;
+            top: 0; bottom: 0; left: 0;
+            width: 0%;
+            background: rgba(255,255,255,0.2);
+            transition: width 0.08s linear, background 0.12s;
+        }
+
+        /* Overlay: vertical marker lines + labels; overflow visible so labels drop below track */
+        #gauge-overlay {
+            position: absolute;
+            inset: 0;
+            overflow: visible;
+            pointer-events: none;
+        }
+
+        .g-marker {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* left: X% set by JS */
+        }
+
+        /* Vertical line spanning the full bar height */
+        .g-marker-line {
+            width: 2px;
+            height: 100%;
+            background: rgba(255,255,255,0.45);
+            flex-shrink: 0;
+        }
+        .g-marker-line--target {
+            width: 3px;
+            background: rgba(255,255,255,0.9);
+        }
+        /* Labels sit below the bar */
+        .g-marker-label {
+            position: absolute;
+            top: calc(100% + 0.35rem);
+            font-size: 0.78rem;
+            font-weight: 500;
+            font-variant-numeric: tabular-nums;
+            opacity: 0.6;
+            white-space: nowrap;
+            transform: translateX(-50%);
+            letter-spacing: 0.02em;
+        }
+        #marker-target .g-marker-label {
+            opacity: 0.95;
+            font-weight: 700;
+        }
+        /* Readout: large number + unit to the right of the bar */
+        #gauge-readout {
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 0.05em;
+            width: 16vw;
+        }
+
+        #weight-number {
+            font-size: 12vw;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+            letter-spacing: -0.03em;
+            line-height: 0.9;
+        }
+
+        #weight-unit {
+            font-size: 2.5vw;
+            font-weight: 300;
+            opacity: 0.65;
+            letter-spacing: 0.1em;
+        }
+
+        /* ── Bottom controls ─────────────────────── */
+        #bottom {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.9rem;
+            flex-shrink: 0;
+            padding-bottom: 0.25rem;
+        }
+
+        #target-section {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            transition: opacity 0.15s;
+        }
+        body:not(.state-idle) #target-section { opacity: 0; pointer-events: none; }
+
+        #target-label {
+            font-size: 0.75rem;
+            font-weight: 400;
+            letter-spacing: 0.15em;
+            opacity: 0.5;
+        }
+
+        .target-btn {
+            width: 2.4rem;
+            height: 2.4rem;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.25);
+            background: transparent;
+            color: inherit;
+            font-size: 1.5rem;
+            line-height: 1;
+            cursor: pointer;
+            transition: background 0.12s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .target-btn:hover { background: rgba(255,255,255,0.12); }
+
+        #target-display {
+            font-size: 2rem;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+            min-width: 4.5rem;
+            text-align: center;
+        }
+        #target-kg { font-size: 0.9rem; opacity: 0.5; }
+
+        #stats-row {
+            font-size: 1rem;
+            opacity: 0.6;
+            letter-spacing: 0.04em;
+        }
+        #rep-val { font-weight: 700; }
+
+        /* Start button (idle only) */
+        #start-stop-btn {
+            padding: 0.7rem 3rem;
+            border-radius: 999px;
+            border: none;
+            background: #ffffff;
+            color: #0f0f0f;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        #start-stop-btn:not(:disabled):hover { opacity: 0.88; transform: scale(1.02); }
+        #start-stop-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* Session controls (pause + exit, shown during session) */
+        #session-controls {
+            display: none;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        #pause-btn {
+            padding: 0.7rem 2.5rem;
+            border-radius: 999px;
+            border: none;
+            background: #ffffff;
+            color: #0f0f0f;
+            font-size: 1.15rem;
+            font-weight: 700;
+            letter-spacing: 0.06em;
+            cursor: pointer;
+            transition: opacity 0.15s, transform 0.1s;
+        }
+        #pause-btn:hover { opacity: 0.88; transform: scale(1.02); }
+
+        #exit-btn {
+            padding: 0.55rem 1.5rem;
+            border-radius: 999px;
+            border: 1px solid rgba(255,255,255,0.3);
+            background: transparent;
+            color: inherit;
+            font-size: 0.95rem;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            cursor: pointer;
+            opacity: 0.55;
+            transition: opacity 0.15s;
+        }
+        #exit-btn:hover { opacity: 1; }
+
+        /* ── Progress bar ────────────────────────── */
+        #progress-track {
+            width: 100%;
+            height: 3px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
+            flex-shrink: 0;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        body:not(.state-idle) #progress-track { opacity: 1; }
+
+        #progress-fill {
+            height: 100%;
+            background: rgba(255,255,255,0.65);
+            border-radius: 2px;
+            width: 0%;
+            transition: width 0.5s linear;
+        }
+        /* ── Disconnect overlay ──────────────────── */
+        #disconnect-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.93);
+            z-index: 100;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 2rem;
+        }
+        #disconnect-overlay.visible { display: flex; }
+
+        #disconnect-reconnect {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 0.6rem;
+            cursor: pointer;
+            padding: 2rem 3rem;
+            border-radius: 1rem;
+            border: 2px solid rgba(255,255,255,0.2);
+            transition: background 0.15s;
+        }
+        #disconnect-reconnect:hover { background: rgba(255,255,255,0.06); }
+
+        #disconnect-msg {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+        }
+        #disconnect-sub {
+            font-size: 1rem;
+            opacity: 0.55;
+            color: #fff;
+            letter-spacing: 0.04em;
+        }
+        #disconnect-stop {
+            background: transparent;
+            border: 1px solid rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.45);
+            font-size: 0.85rem;
+            padding: 0.4rem 1.2rem;
+            border-radius: 999px;
+            cursor: pointer;
+            letter-spacing: 0.06em;
+            transition: opacity 0.15s;
+        }
+        #disconnect-stop:hover { opacity: 0.7; }
+    </style>
+</head>
+<body class="state-idle">
+<div id="app">
+
+    <div id="topbar">
+        <button id="connect-btn">Connect Scale</button>
+        <div id="elapsed">00:00</div>
+    </div>
+
+    <div id="progress-track"><div id="progress-fill"></div></div>
+
+    <div id="main-display">
+        <div id="interval-row">
+            <div id="interval-label"></div>
+            <div id="countdown"></div>
+        </div>
+
+        <div id="gauge-wrap">
+            <div id="gauge-main">
+                <div id="gauge-column">
+                    <div id="gauge-clip">
+                        <div id="gauge-fill"></div>
+                    </div>
+                    <div id="gauge-overlay">
+                        <div class="g-marker" id="marker-lower">
+                            <div class="g-marker-line"></div>
+                            <span class="g-marker-label" id="mlabel-lower">7.0</span>
+                        </div>
+                        <div class="g-marker" id="marker-target">
+                            <div class="g-marker-line g-marker-line--target"></div>
+                            <span class="g-marker-label" id="mlabel-target">8.0</span>
+                        </div>
+                        <div class="g-marker" id="marker-upper">
+                            <div class="g-marker-line"></div>
+                            <span class="g-marker-label" id="mlabel-upper">9.0</span>
+                        </div>
+                    </div>
+                </div>
+                <div id="gauge-readout">
+                    <div id="weight-number">--.-</div>
+                    <div id="weight-unit">kg</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="bottom">
+        <div id="target-section">
+            <span id="target-label">TARGET</span>
+            <button class="target-btn" id="target-minus">−</button>
+            <span id="target-display">8.00</span>
+            <span id="target-kg">kg</span>
+            <button class="target-btn" id="target-plus">+</button>
+        </div>
+        <div id="stats-row">Reps: <span id="rep-val">0</span></div>
+        <div id="session-controls">
+            <button id="pause-btn">Pause</button>
+            <button id="exit-btn">Exit</button>
+        </div>
+        <button id="start-stop-btn" disabled>Start</button>
+    </div>
+
+    <div id="disconnect-overlay">
+        <div id="disconnect-reconnect">
+            <p id="disconnect-msg">Scale disconnected</p>
+            <p id="disconnect-sub">Tap to reconnect</p>
+        </div>
+        <button id="disconnect-stop">Stop session</button>
+    </div>
+
+</div>
+<script type="module" src="jade-arc.js"></script>
+</body>
+</html>

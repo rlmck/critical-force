@@ -1,0 +1,2196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Critical Force Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #1a1a1a;
+            color: #e0e0e0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .screen {
+            display: none;
+            max-width: 800px;
+            width: 100%;
+        }
+
+        .screen.active {
+            display: block;
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin-bottom: 2rem;
+            text-align: center;
+            color: #fff;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+            color: #fff;
+        }
+
+        /* Setup Screen */
+        .setup-container {
+            background: #2a2a2a;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            position: relative;
+        }
+
+        .connection-dot {
+            display: none;
+            position: absolute;
+            top: 1.5rem;
+            right: 1.5rem;
+            width: 0.9rem;
+            height: 0.9rem;
+            border-radius: 50%;
+            background: #00cc66;
+        }
+
+        .form-group {
+            margin-bottom: 2rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+            color: #b0b0b0;
+        }
+
+        input[type="number"],
+        input[type="text"] {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.2rem;
+            background: #3a3a3a;
+            border: 2px solid #4a4a4a;
+            border-radius: 6px;
+            color: #fff;
+        }
+
+        input[type="number"]:focus,
+        input[type="text"]:focus {
+            outline: none;
+            border-color: #0066cc;
+        }
+
+        .toggle-group {
+            display: flex;
+            gap: 1rem;
+        }
+
+        .toggle-btn {
+            flex: 1;
+            padding: 0.75rem;
+            font-size: 1.1rem;
+            background: #3a3a3a;
+            border: 2px solid #4a4a4a;
+            border-radius: 6px;
+            color: #b0b0b0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .toggle-btn.active {
+            background: #0066cc;
+            border-color: #0066cc;
+            color: #fff;
+        }
+
+        button {
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            background: #0066cc;
+            border: none;
+            border-radius: 6px;
+            color: #fff;
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-top: 1rem;
+        }
+
+        button:hover:not(:disabled) {
+            background: #0052a3;
+        }
+
+        button:disabled {
+            background: #3a3a3a;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        button.secondary {
+            background: #2a2a2a;
+            border: 2px solid #4a4a4a;
+        }
+
+        button.secondary:hover:not(:disabled) {
+            background: #3a3a3a;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            margin-top: 0.5rem;
+        }
+
+        .status-badge.connected {
+            background: #00aa44;
+            color: #fff;
+        }
+
+        .status-badge.disconnected {
+            background: #aa3333;
+            color: #fff;
+        }
+
+        /* Active Test Screen */
+        .test-container {
+            background: #2a2a2a;
+            padding: 2rem;
+            border-radius: 12px;
+        }
+
+        .rep-display {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: #fff;
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 4rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .state-label {
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding: 0.75rem;
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+        }
+
+        .state-label.countdown {
+            background: #ffaa00;
+            color: #000;
+        }
+
+        .state-label.hanging {
+            background: #cc3333;
+            color: #fff;
+        }
+
+        .state-label.rest {
+            background: #3366cc;
+            color: #fff;
+        }
+
+        .live-weight {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 1rem;
+            color: #00cc66;
+        }
+
+        .signal-indicator {
+            text-align: center;
+            padding: 0.5rem;
+            background: #ffaa00;
+            color: #000;
+            border-radius: 6px;
+            margin-bottom: 1rem;
+            display: none;
+        }
+
+        .signal-indicator.visible {
+            display: block;
+        }
+
+        .chart-container {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #1a1a1a;
+            border-radius: 6px;
+        }
+
+        .chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 4px;
+            height: 200px;
+            padding: 10px 0;
+        }
+
+        .bar {
+            flex: 1;
+            background: #4a4a4a;
+            border-radius: 3px 3px 0 0;
+            position: relative;
+            min-height: 2px;
+            transition: height 0.3s;
+        }
+
+        .bar.cf-rep {
+            background: #00cc66;
+        }
+
+        .bar.unreliable {
+            background: #ff9933;
+        }
+
+        .bar.cf-rep.unreliable {
+            background: #ffaa44;
+        }
+
+        .bar-label {
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        .warning-message {
+            background: #ff9933;
+            color: #000;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+            font-weight: 600;
+        }
+
+        /* ── Immersive phase stage (active test) ── */
+        #testScreen.screen {
+            max-width: none;
+        }
+
+        .phase-stage {
+            position: fixed;
+            inset: 0;
+            overflow: hidden;
+            background: #101418;
+            transition: background 0.45s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            --phase-color: #4a4a4a;
+            --phase-glow: rgba(255, 255, 255, 0.35);
+        }
+
+        body.phase-countdown .phase-stage {
+            background: #241a02;
+            --phase-color: #ffaa00;
+            --phase-glow: rgba(255, 170, 0, 0.55);
+        }
+
+        body.phase-hanging .phase-stage {
+            background: #04231a;
+            --phase-color: #00c46a;
+            --phase-glow: rgba(0, 196, 106, 0.55);
+        }
+
+        body.phase-rest .phase-stage {
+            background: #08152c;
+            --phase-color: #2f6fe0;
+            --phase-glow: rgba(47, 111, 224, 0.55);
+        }
+
+        /* The sliding sheet of colour: rises during a pull, drains during rest */
+        .phase-fill {
+            position: absolute;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            height: 0%;
+            background:
+                linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 45%),
+                var(--phase-color);
+            transition: height 1s linear, background 0.45s ease;
+        }
+
+        /* Bright leading edge on the water line */
+        .phase-fill::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 0;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.92);
+            box-shadow: 0 0 28px 8px var(--phase-glow);
+        }
+
+        body.phase-hanging .phase-fill {
+            animation: phase-pulse 1.6s ease-in-out infinite;
+        }
+
+        @keyframes phase-pulse {
+            0%, 100% { filter: brightness(1); }
+            50%      { filter: brightness(1.18); }
+        }
+
+        .phase-content {
+            position: relative;
+            z-index: 2;
+            width: 100%;
+            max-width: 900px;
+            padding: 2rem 1.5rem;
+            text-align: center;
+            text-shadow: 0 2px 18px rgba(0, 0, 0, 0.55);
+            pointer-events: none;
+        }
+
+        .phase-rep {
+            font-size: 1.1rem;
+            letter-spacing: 0.22em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.75);
+            margin-bottom: 0.75rem;
+        }
+
+        .phase-label {
+            font-size: clamp(2rem, 8vw, 4.5rem);
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            color: #fff;
+            line-height: 1;
+        }
+
+        .phase-label.enter {
+            animation: phase-label-in 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        @keyframes phase-label-in {
+            from { opacity: 0; transform: translateY(28px) scale(0.94); }
+            to   { opacity: 1; transform: none; }
+        }
+
+        .phase-timer {
+            font-size: clamp(6rem, 26vw, 17rem);
+            font-weight: 800;
+            line-height: 0.95;
+            color: #fff;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .phase-weight {
+            font-size: clamp(1.4rem, 5vw, 2.6rem);
+            font-weight: 700;
+            color: rgba(255, 255, 255, 0.92);
+            min-height: 1.4em;
+        }
+
+        .phase-chart {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 84px;
+            margin-top: 2rem;
+            opacity: 0.85;
+        }
+
+        .phase-chart .bar {
+            background: rgba(255, 255, 255, 0.28);
+        }
+
+        .phase-chart .bar.cf-rep {
+            background: rgba(255, 255, 255, 0.55);
+        }
+
+        .phase-chart .bar.unreliable {
+            background: #ff9933;
+        }
+
+        .phase-stage .signal-indicator {
+            max-width: 260px;
+            margin: 0 auto 1rem;
+        }
+
+        /* Results Screen */
+        .results-container {
+            background: #2a2a2a;
+            padding: 3rem;
+            border-radius: 12px;
+        }
+
+        .cf-display {
+            text-align: center;
+            font-size: 4rem;
+            font-weight: 700;
+            color: #00cc66;
+            margin-bottom: 2rem;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .metric-card {
+            background: #3a3a3a;
+            padding: 1.5rem;
+            border-radius: 6px;
+            text-align: center;
+        }
+
+        .metric-label {
+            font-size: 0.9rem;
+            color: #b0b0b0;
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .cf-reps {
+            background: #3a3a3a;
+            padding: 1.5rem;
+            border-radius: 6px;
+            margin-bottom: 2rem;
+        }
+
+        .cf-reps h3 {
+            margin-bottom: 1rem;
+            color: #00cc66;
+        }
+
+        .cf-rep-values {
+            display: flex;
+            justify-content: space-around;
+            font-size: 1.2rem;
+        }
+
+        .results-chart {
+            position: relative;
+            margin-bottom: 2rem;
+        }
+
+        .cf-line {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: #00cc66;
+            pointer-events: none;
+        }
+
+        .cf-line-label {
+            position: absolute;
+            right: 10px;
+            top: -10px;
+            font-size: 0.8rem;
+            color: #00cc66;
+        }
+
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+
+        /* Nav */
+        .main-nav {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 100;
+            background: #1e1e1e;
+            border-bottom: 1px solid #333;
+            padding: 0.5rem;
+            display: none;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .main-nav.visible {
+            display: flex;
+        }
+
+        .main-nav .nav-btn {
+            width: auto;
+            padding: 0.35rem 1.1rem;
+            font-size: 0.88rem;
+            font-weight: 500;
+            background: transparent;
+            border: 1px solid #444;
+            border-radius: 4px;
+            color: #999;
+            cursor: pointer;
+            margin-top: 0;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+        }
+
+        .main-nav .nav-btn:hover:not(:disabled) {
+            background: #2a2a2a;
+            color: #ddd;
+            border-color: #555;
+        }
+
+        .main-nav .nav-btn.active {
+            background: #0066cc;
+            border-color: #0066cc;
+            color: #fff;
+        }
+
+        /* Compare Screen */
+        .compare-container {
+            background: #2a2a2a;
+            padding: 3rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        }
+
+        .upload-area {
+            border: 2px dashed #4a4a4a;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            margin-bottom: 2rem;
+            cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
+        }
+
+        .upload-area:hover, .upload-area.drag-over {
+            border-color: #0066cc;
+            background: #252525;
+        }
+
+        .upload-area label {
+            display: block;
+            cursor: pointer;
+            color: #b0b0b0;
+            font-size: 1rem;
+            width: auto;
+            padding: 0;
+            background: none;
+            border: none;
+            margin-top: 0;
+            font-weight: 400;
+        }
+
+        .upload-icon {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            color: #666;
+        }
+
+        .upload-hint {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 0.4rem;
+        }
+
+        .compare-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .compare-card {
+            background: #3a3a3a;
+            border-radius: 8px;
+            padding: 1.2rem;
+        }
+
+        .compare-card-header {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.3rem;
+        }
+
+        .card-color-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        .compare-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: #fff;
+        }
+
+        .compare-hand {
+            font-size: 0.85rem;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .compare-date {
+            font-size: 0.8rem;
+            color: #666;
+            margin-bottom: 1rem;
+        }
+
+        .compare-metrics {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .compare-metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+        }
+
+        .compare-metric-label {
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .compare-metric-value {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ddd;
+        }
+
+        .compare-error {
+            background: #3a2020;
+            border: 1px solid #663333;
+            border-radius: 6px;
+            padding: 0.75rem 1rem;
+            font-size: 0.875rem;
+            color: #f08080;
+            grid-column: 1 / -1;
+        }
+
+        /* Overlay chart */
+        .overlay-section {
+            margin-bottom: 2rem;
+        }
+
+        .overlay-section h2 {
+            font-size: 1.1rem;
+            color: #aaa;
+            font-weight: 500;
+            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .overlay-chart-container {
+            background: #1a1a1a;
+            border-radius: 6px;
+            padding: 0.5rem 0;
+            overflow: hidden;
+        }
+
+        .overlay-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem 1.5rem;
+            margin-top: 0.75rem;
+            padding: 0 0.25rem;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .legend-swatch {
+            display: inline-block;
+            width: 20px;
+            height: 3px;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+
+        .legend-label {
+            font-size: 0.85rem;
+            color: #bbb;
+        }
+
+        /* Live Reading Screen */
+        .live-reading-weight {
+            text-align: center;
+            font-size: 5rem;
+            font-weight: 700;
+            color: #00cc66;
+            margin-bottom: 0.25rem;
+        }
+
+        .live-reading-max {
+            text-align: center;
+            font-size: 3rem;
+            font-weight: 700;
+            color: #fff;
+            margin-top: 1.5rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .live-reading-label {
+            text-align: center;
+            font-size: 0.9rem;
+            color: #b0b0b0;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+    </style>
+</head>
+<body>
+    <nav id="mainNav" class="main-nav">
+        <button class="nav-btn" data-screen="setup">Test</button>
+        <button class="nav-btn" data-screen="compare">Compare</button>
+    </nav>
+
+    <!-- Setup Screen -->
+    <div id="setupScreen" class="screen active">
+        <div class="setup-container">
+            <div id="connectionDot" class="connection-dot"></div>
+            <h1>Critical Force Test</h1>
+
+            <div class="form-group">
+                <label for="athleteName">Name</label>
+                <input type="text" id="athleteName" maxlength="40" placeholder="Ross" autocomplete="name">
+            </div>
+
+            <div class="form-group">
+                <label for="bodyweight">Bodyweight (kg)</label>
+                <input type="number" id="bodyweight" min="30" max="200" step="0.1" placeholder="70.0">
+            </div>
+
+            <div class="form-group">
+                <label>Hand Selection</label>
+                <div class="toggle-group" data-field="hand">
+                    <button type="button" class="toggle-btn active" data-value="left">Left</button>
+                    <button type="button" class="toggle-btn" data-value="right">Right</button>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Grip Type</label>
+                <div class="toggle-group" data-field="grip">
+                    <button type="button" class="toggle-btn active" data-value="half-crimp">Half Crimp</button>
+                    <button type="button" class="toggle-btn" data-value="3-finger-drag">3 Finger Drag</button>
+                </div>
+            </div>
+
+            <button id="connectBtn" class="secondary">Connect Scale</button>
+
+            <button id="beginBtn" disabled>Begin Test</button>
+            <button id="liveReadingBtn" disabled class="secondary">Live Reading</button>
+        </div>
+    </div>
+
+    <!-- Live Reading Screen -->
+    <div id="liveScreen" class="screen">
+        <div class="setup-container">
+            <h1>Live Reading</h1>
+            <div class="live-reading-weight" id="liveCurrentWeight">-- kg</div>
+            <div class="live-reading-label">Current</div>
+            <div class="live-reading-max" id="liveMaxWeight">-- kg</div>
+            <div class="live-reading-label">Max</div>
+            <button id="resetMaxBtn" class="secondary" style="margin-top: 2rem;">Reset Max</button>
+            <button id="backToSetupBtn" class="secondary">Back to Setup</button>
+        </div>
+    </div>
+
+    <!-- Active Test Screen -->
+    <div id="testScreen" class="screen">
+        <div class="phase-stage">
+            <div class="phase-fill" id="phaseFill"></div>
+            <div class="phase-content">
+                <div class="signal-indicator" id="signalIndicator">Signal Weak</div>
+                <div class="phase-rep" id="repDisplay">Rep 1 / 24</div>
+                <div class="phase-label" id="stateLabel">HANG</div>
+                <div class="phase-timer" id="timerDisplay">7</div>
+                <div class="phase-weight" id="liveWeight">--</div>
+                <div class="phase-chart chart" id="liveChart"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Results Screen -->
+    <div id="resultsScreen" class="screen">
+        <div class="results-container">
+            <h1>Test Complete</h1>
+            <div class="compare-date" id="resultsSubtitle" style="text-align:center;font-size:1rem;margin-bottom:1.5rem"></div>
+            <div class="cf-display" id="cfDisplay">--</div>
+
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-label">CF:Bodyweight Ratio</div>
+                    <div class="metric-value" id="ratioValue">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">80% CF (ARC Zone)</div>
+                    <div class="metric-value" id="arcValue">--</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-label">Threshold Zone</div>
+                    <div class="metric-value" id="thresholdValue">--</div>
+                </div>
+            </div>
+
+            <div class="cf-reps">
+                <h3>Critical Force Reps (22, 23, 24)</h3>
+                <div class="cf-rep-values" id="cfRepValues">--</div>
+            </div>
+
+            <div class="chart-container results-chart">
+                <div id="cfLine" class="cf-line"></div>
+                <div class="chart" id="resultsChart"></div>
+            </div>
+
+            <div class="overlay-section" id="resultsOverlaySection">
+                <h2>Decay Curve Overlay · Force (kg)</h2>
+                <div id="resultsOverlayChart" class="overlay-chart-container"></div>
+                <div id="resultsOverlayLegend" class="overlay-legend"></div>
+            </div>
+
+            <div class="overlay-section" id="resultsRatioSection">
+                <h2>Decay Curve Overlay · Bodyweight (× BW)</h2>
+                <div id="resultsRatioChart" class="overlay-chart-container"></div>
+                <div id="resultsRatioLegend" class="overlay-legend"></div>
+            </div>
+
+            <div class="button-group">
+                <button id="saveBtn">Save Result</button>
+                <button id="retryBtn" class="secondary">Test Again</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Compare Screen -->
+    <div id="compareScreen" class="screen">
+        <div class="compare-container">
+            <h1>Compare Results</h1>
+            <div class="upload-area" id="uploadArea">
+                <input type="file" id="fileInput" multiple accept=".json" style="display:none">
+                <label for="fileInput">
+                    <div class="upload-icon">↑</div>
+                    <div>Upload JSON Result Files</div>
+                    <div class="upload-hint">Click to browse · Drag & drop · Multiple files supported</div>
+                </label>
+            </div>
+            <div id="compareCards" class="compare-cards"></div>
+            <div id="compareChartSection" class="overlay-section" style="display:none">
+                <h2>Decay Curve Overlay · Force (kg)</h2>
+                <div id="compareOverlayChart" class="overlay-chart-container"></div>
+                <div id="compareOverlayLegend" class="overlay-legend"></div>
+            </div>
+            <div id="compareRatioSection" class="overlay-section" style="display:none">
+                <h2>Decay Curve Overlay · Bodyweight (× BW)</h2>
+                <div id="compareRatioChart" class="overlay-chart-container"></div>
+                <div id="compareRatioLegend" class="overlay-legend"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import BluetoothScale from './bluetooth-scale.js';
+
+        // ============================================
+        // CONFIGURATION
+        // ============================================
+        const CONFIG = {
+            TOTAL_REPS: 24,
+            COUNTDOWN_DURATION: 10,
+            HANG_DURATION: 7,
+            REST_DURATION: 3,
+            NOISE_THRESHOLD: 1.0,
+            SIGNAL_TIMEOUT: 3000,
+            CF_REPS: [21, 22, 23], // 0-indexed: reps 22, 23, 24
+            WINDOW_START_MS: 2000, // Start of averaging window (2 seconds)
+            WINDOW_END_MS: 6000,   // End of averaging window (6 seconds)
+            MIN_VALID_READINGS: 3, // Minimum readings for reliable rep
+        };
+
+        // Grip types (value → display label). Values double as filename slugs.
+        const GRIPS = {
+            'half-crimp':    'Half Crimp',
+            '3-finger-drag': '3 Finger Drag'
+        };
+
+        // ============================================
+        // STATE MACHINE
+        // ============================================
+        const States = {
+            IDLE: 'IDLE',
+            COUNTDOWN: 'COUNTDOWN',
+            HANGING: 'HANGING',
+            REST: 'REST',
+            COMPLETE: 'COMPLETE'
+        };
+
+        class StateMachine {
+            constructor() {
+                this.state = States.IDLE;
+                this.currentRep = 0;
+                this.timeRemaining = 0;
+                this.repData = [];
+                this.currentReadings = [];
+                this.currentFilteredReadings = [];
+                this.hangStartTime = 0;
+                this.currentAverage = 0;
+                this.timer = null;
+                // Every reading the scale emits between test start and completion,
+                // regardless of phase or noise threshold.
+                this.sessionStartTime = 0;
+                this.allReadings = [];
+            }
+
+            transition(newState) {
+                console.log(`State transition: ${this.state} → ${newState}`);
+                this.state = newState;
+                this.onStateChange();
+            }
+
+            onStateChange() {
+                switch (this.state) {
+                    case States.COUNTDOWN:
+                        this.timeRemaining = CONFIG.COUNTDOWN_DURATION;
+                        this.sessionStartTime = Date.now();
+                        this.startTimer();
+                        break;
+                    case States.HANGING:
+                        this.timeRemaining = CONFIG.HANG_DURATION;
+                        this.hangStartTime = Date.now();
+                        this.currentReadings = [];
+                        this.currentFilteredReadings = [];
+                        this.currentAverage = 0;
+                        this.startTimer();
+                        audio.playHangStart();
+                        console.log(`Rep ${this.currentRep + 1} - HANG started at ${this.hangStartTime}`);
+                        break;
+                    case States.REST:
+                        this.timeRemaining = CONFIG.REST_DURATION;
+                        const repResult = this.calculateRepAverage();
+                        this.repData.push(repResult);
+                        this.currentRep++;
+                        this.startTimer();
+                        audio.playHangEnd();
+                        break;
+                    case States.COMPLETE:
+                        this.stopTimer();
+                        audio.playComplete();
+                        break;
+                }
+                ui.startPhaseVisual(this.state);
+                ui.render();
+            }
+
+            calculateRepAverage() {
+                const rawCount = this.currentReadings.length;
+
+                // Filter readings within the 2-6 second window
+                const windowedReadings = this.currentReadings.filter(reading => {
+                    const elapsed = reading.timestamp - this.hangStartTime;
+                    return elapsed >= CONFIG.WINDOW_START_MS && elapsed <= CONFIG.WINDOW_END_MS;
+                });
+                const windowCount = windowedReadings.length;
+
+                // Further filter by noise threshold
+                const validReadings = windowedReadings.filter(reading =>
+                    reading.weight >= CONFIG.NOISE_THRESHOLD
+                );
+                const filteredCount = validReadings.length;
+
+                // Calculate average
+                let average = 0;
+                if (filteredCount > 0) {
+                    const sum = validReadings.reduce((acc, reading) => acc + reading.weight, 0);
+                    average = sum / filteredCount;
+                }
+
+                // Check if rep is unreliable
+                const unreliable = filteredCount < CONFIG.MIN_VALID_READINGS;
+
+                // Minimum: lowest force in the 2-6s filtered set (same set as average)
+                const minimum = filteredCount > 0
+                    ? Math.min(...validReadings.map(r => r.weight))
+                    : 0;
+
+                // Peak: highest force across all noise-filtered readings (full 7s window)
+                const peak = this.currentFilteredReadings.length > 0
+                    ? Math.max(...this.currentFilteredReadings.map(r => r.force))
+                    : 0;
+
+                // Log detailed stats
+                console.log(`Rep ${this.currentRep + 1} - Statistics:`);
+                console.log(`  Raw readings received: ${rawCount}`);
+                console.log(`  Within 2-6s window: ${windowCount}`);
+                console.log(`  After noise filter (≥${CONFIG.NOISE_THRESHOLD}kg): ${filteredCount}`);
+                console.log(`  Calculated average: ${average.toFixed(2)} kg`);
+                console.log(`  Minimum (window): ${minimum.toFixed(2)} kg`);
+                console.log(`  Peak (full rep): ${peak.toFixed(2)} kg`);
+                console.log(`  Unreliable: ${unreliable ? 'YES' : 'NO'}`);
+
+                return {
+                    average,
+                    minimum,
+                    peak,
+                    unreliable,
+                    // Every reading captured during this hang, unfiltered
+                    rawReadings: this.currentReadings.map(r => ({
+                        t: r.timestamp - this.hangStartTime,
+                        force: r.weight
+                    })),
+                    stats: {
+                        rawCount,
+                        windowCount,
+                        filteredCount
+                    }
+                };
+            }
+
+            startTimer() {
+                this.stopTimer();
+                this.timer = setInterval(() => {
+                    this.timeRemaining--;
+
+                    // Only tick audibly for the last 5s of the longer countdown
+                    if (this.state === States.COUNTDOWN && this.timeRemaining > 0 && this.timeRemaining <= 5) {
+                        audio.playCountdown();
+                    }
+
+                    if (this.timeRemaining <= 0) {
+                        this.handleTimerEnd();
+                    } else {
+                        ui.render();
+                    }
+                }, 1000);
+            }
+
+            stopTimer() {
+                if (this.timer) {
+                    clearInterval(this.timer);
+                    this.timer = null;
+                }
+            }
+
+            handleTimerEnd() {
+                switch (this.state) {
+                    case States.COUNTDOWN:
+                        this.transition(States.HANGING);
+                        break;
+                    case States.HANGING:
+                        this.transition(States.REST);
+                        break;
+                    case States.REST:
+                        if (this.currentRep >= CONFIG.TOTAL_REPS) {
+                            this.transition(States.COMPLETE);
+                        } else {
+                            this.transition(States.HANGING);
+                        }
+                        break;
+                }
+            }
+
+            recordWeight(weight) {
+                const now = Date.now();
+
+                // Log every reading for the whole test, whatever phase we're in
+                if (this.sessionStartTime && this.state !== States.IDLE && this.state !== States.COMPLETE) {
+                    this.allReadings.push({
+                        t: now - this.sessionStartTime,
+                        weight,
+                        phase: this.state,
+                        rep: this.state === States.HANGING ? this.currentRep + 1 : null
+                    });
+                }
+
+                if (this.state === States.HANGING) {
+                    const timestamp = now;
+                    this.currentReadings.push({ weight, timestamp });
+
+                    if (weight >= CONFIG.NOISE_THRESHOLD) {
+                        this.currentFilteredReadings.push({
+                            t: timestamp - this.hangStartTime,
+                            force: weight
+                        });
+                    }
+
+                    // Calculate live average for display
+                    const elapsed = timestamp - this.hangStartTime;
+                    if (elapsed >= CONFIG.WINDOW_START_MS && elapsed <= CONFIG.WINDOW_END_MS) {
+                        const windowReadings = this.currentReadings.filter(r => {
+                            const e = r.timestamp - this.hangStartTime;
+                            return e >= CONFIG.WINDOW_START_MS && e <= CONFIG.WINDOW_END_MS && r.weight >= CONFIG.NOISE_THRESHOLD;
+                        });
+                        if (windowReadings.length > 0) {
+                            const sum = windowReadings.reduce((acc, r) => acc + r.weight, 0);
+                            this.currentAverage = sum / windowReadings.length;
+                            // Live weight is repainted by the scale listener; no full re-render
+                            // here so no reading is delayed behind a chart rebuild.
+                        }
+                    }
+                }
+            }
+
+            reset() {
+                this.stopTimer();
+                this.state = States.IDLE;
+                this.currentRep = 0;
+                this.timeRemaining = 0;
+                this.repData = [];
+                this.currentReadings = [];
+                this.currentFilteredReadings = [];
+                this.hangStartTime = 0;
+                this.currentAverage = 0;
+                this.sessionStartTime = 0;
+                this.allReadings = [];
+            }
+        }
+
+        // ============================================
+        // AUDIO SYSTEM
+        // ============================================
+        class AudioSystem {
+            constructor() {
+                this.audioContext = null;
+            }
+
+            init() {
+                if (!this.audioContext) {
+                    this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                }
+            }
+
+            playTone(frequency, duration) {
+                this.init();
+                const oscillator = this.audioContext.createOscillator();
+                const gainNode = this.audioContext.createGain();
+
+                oscillator.connect(gainNode);
+                gainNode.connect(this.audioContext.destination);
+
+                oscillator.frequency.value = frequency;
+                oscillator.type = 'sine';
+
+                gainNode.gain.setValueAtTime(0.3, this.audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration / 1000);
+
+                oscillator.start(this.audioContext.currentTime);
+                oscillator.stop(this.audioContext.currentTime + duration / 1000);
+            }
+
+            playCountdown() {
+                this.playTone(400, 150);
+            }
+
+            playHangStart() {
+                this.playTone(600, 300);
+            }
+
+            playHangEnd() {
+                this.playTone(300, 200);
+            }
+
+            playComplete() {
+                this.playTone(400, 200);
+                setTimeout(() => this.playTone(500, 200), 250);
+                setTimeout(() => this.playTone(600, 300), 500);
+            }
+        }
+
+        // ============================================
+        // SCALE INTEGRATION
+        // ============================================
+        class ScaleIntegration {
+            constructor() {
+                this.scale = new BluetoothScale();
+                this.lastPacketTime = Date.now();
+                this.signalCheckInterval = null;
+            }
+
+            async connect() {
+                try {
+                    await this.scale.connect();
+                    this.setupListeners();
+                    return true;
+                } catch (error) {
+                    console.error('Scale connection failed:', error);
+                    return false;
+                }
+            }
+
+            setupListeners() {
+                window.addEventListener('scale:weight', (event) => {
+                    this.lastPacketTime = Date.now();
+                    const weight = event.detail.weight;
+                    const max = event.detail.max;
+                    stateMachine.recordWeight(weight);
+                    ui.updateLiveWeight(weight);
+                    ui.updateLiveReadingDisplay(weight, max);
+                });
+
+                window.addEventListener('scale:disconnected', () => {
+                    ui.updateScaleStatus(false);
+                });
+            }
+
+            resetMax() {
+                this.scale.resetMax();
+            }
+
+            isConnected() {
+                return this.scale.isConnected();
+            }
+
+            startSignalMonitoring() {
+                this.stopSignalMonitoring();
+                this.lastPacketTime = Date.now();
+
+                this.signalCheckInterval = setInterval(() => {
+                    const timeSinceLastPacket = Date.now() - this.lastPacketTime;
+                    ui.updateSignalIndicator(timeSinceLastPacket > CONFIG.SIGNAL_TIMEOUT);
+                }, 500);
+            }
+
+            stopSignalMonitoring() {
+                if (this.signalCheckInterval) {
+                    clearInterval(this.signalCheckInterval);
+                    this.signalCheckInterval = null;
+                }
+                ui.updateSignalIndicator(false);
+            }
+
+            prepareForTest() {
+                // Increase packet timeout during active test
+                BluetoothScale.PACKET_TIMEOUT_MS = 12000;
+            }
+
+            restoreDefaults() {
+                // Restore default timeout after test
+                BluetoothScale.PACKET_TIMEOUT_MS = 5000;
+            }
+        }
+
+        // ============================================
+        // UI SYSTEM
+        // ============================================
+        class UISystem {
+            constructor() {
+                this.currentScreen = 'setup';
+                this.setupEventListeners();
+            }
+
+            setupEventListeners() {
+                // Setup screen — each toggle group drives its own appData field
+                document.querySelectorAll('.toggle-group').forEach(group => {
+                    group.addEventListener('click', (e) => {
+                        const btn = e.target.closest('.toggle-btn');
+                        if (!btn) return;
+                        group.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
+                        btn.classList.add('active');
+                        appData[group.dataset.field] = btn.dataset.value;
+                    });
+                });
+
+                document.getElementById('athleteName').addEventListener('input', (e) => {
+                    appData.name = e.target.value.trim();
+                    this.updateBeginButton();
+                });
+
+                document.getElementById('connectBtn').addEventListener('click', async () => {
+                    const btn = document.getElementById('connectBtn');
+                    btn.disabled = true;
+                    btn.textContent = 'Connecting...';
+
+                    const success = await scaleIntegration.connect();
+
+                    if (success) {
+                        this.updateScaleStatus(true);
+                    } else {
+                        btn.disabled = false;
+                        btn.textContent = 'Connect Scale';
+                        this.updateScaleStatus(false);
+                    }
+                });
+
+                document.getElementById('bodyweight').addEventListener('input', () => {
+                    appData.bodyweight = parseFloat(document.getElementById('bodyweight').value);
+                    this.updateBeginButton();
+                });
+
+                document.getElementById('beginBtn').addEventListener('click', () => {
+                    this.startTest();
+                });
+
+                document.getElementById('liveReadingBtn').addEventListener('click', () => {
+                    this.showScreen('live');
+                });
+
+                document.getElementById('resetMaxBtn').addEventListener('click', () => {
+                    scaleIntegration.resetMax();
+                });
+
+                document.getElementById('backToSetupBtn').addEventListener('click', () => {
+                    this.showScreen('setup');
+                });
+
+                document.getElementById('saveBtn').addEventListener('click', () => {
+                    this.saveResults();
+                });
+
+                document.getElementById('retryBtn').addEventListener('click', () => {
+                    this.resetToSetup();
+                });
+
+                // Nav
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    btn.addEventListener('click', () => this.showScreen(btn.dataset.screen));
+                });
+
+                // Compare — file input
+                document.getElementById('fileInput').addEventListener('change', async (e) => {
+                    await this.handleFileUpload(e.target.files);
+                    e.target.value = '';
+                });
+
+                // Compare — drag and drop
+                const uploadArea = document.getElementById('uploadArea');
+                uploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.add('drag-over');
+                });
+                uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+                uploadArea.addEventListener('drop', async (e) => {
+                    e.preventDefault();
+                    uploadArea.classList.remove('drag-over');
+                    await this.handleFileUpload(e.dataTransfer.files);
+                });
+            }
+
+            updateScaleStatus(connected) {
+                document.getElementById('connectionDot').style.display = connected ? 'block' : 'none';
+                const connectBtn = document.getElementById('connectBtn');
+                connectBtn.disabled = connected;
+                connectBtn.textContent = connected ? 'Scale Connected' : 'Connect Scale';
+                this.updateBeginButton();
+            }
+
+            updateBeginButton() {
+                const scaleConnected = scaleIntegration.isConnected();
+                const bodyweightValid = appData.bodyweight > 0;
+                const nameValid = appData.name.length > 0;
+                document.getElementById('beginBtn').disabled = !(bodyweightValid && nameValid && scaleConnected);
+                document.getElementById('liveReadingBtn').disabled = !scaleConnected;
+            }
+
+            startTest() {
+                scaleIntegration.prepareForTest();
+                scaleIntegration.startSignalMonitoring();
+                stateMachine.reset();
+                // Screen first, so the countdown's colour sweep starts on the visible stage
+                this.showScreen('test');
+                stateMachine.transition(States.COUNTDOWN);
+            }
+
+            /**
+             * Drives the full-screen colour + sliding fill for a phase.
+             * The sheet of colour rises through a pull and drains through
+             * countdown/rest, so the direction alone reads as pull vs rest.
+             */
+            startPhaseVisual(state) {
+                const phaseClass = {
+                    [States.COUNTDOWN]: 'phase-countdown',
+                    [States.HANGING]:   'phase-hanging',
+                    [States.REST]:      'phase-rest'
+                }[state] || '';
+
+                document.body.className = phaseClass;
+
+                if (!phaseClass) {
+                    this.animateFill(0, 0, 0.4);
+                    return;
+                }
+
+                if (state === States.HANGING) {
+                    this.animateFill(0, 100, CONFIG.HANG_DURATION);
+                } else if (state === States.REST) {
+                    this.animateFill(100, 0, CONFIG.REST_DURATION);
+                } else {
+                    this.animateFill(100, 0, CONFIG.COUNTDOWN_DURATION);
+                }
+
+                // Replay the label entry animation on every phase change
+                const label = document.getElementById('stateLabel');
+                label.classList.remove('enter');
+                void label.offsetWidth;
+                label.classList.add('enter');
+            }
+
+            animateFill(fromPct, toPct, seconds) {
+                const fill = document.getElementById('phaseFill');
+                fill.style.transition = 'none';
+                fill.style.height = `${fromPct}%`;
+                void fill.offsetHeight; // flush the jump before the timed slide
+                fill.style.transition = `height ${seconds}s linear, background 0.45s ease`;
+                fill.style.height = `${toPct}%`;
+            }
+
+            showScreen(screenName) {
+                this.currentScreen = screenName;
+                document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+                document.getElementById(`${screenName}Screen`).classList.add('active');
+
+                // Phase colours only belong to the test screen
+                if (screenName !== 'test') document.body.className = '';
+
+                const nav = document.getElementById('mainNav');
+                nav.classList.toggle('visible', screenName !== 'test');
+                document.querySelectorAll('.nav-btn').forEach(btn => {
+                    const isCompare = btn.dataset.screen === 'compare';
+                    btn.classList.toggle('active', isCompare === (screenName === 'compare'));
+                });
+            }
+
+            render() {
+                if (this.currentScreen === 'test') {
+                    this.renderTestScreen();
+                }
+            }
+
+            renderTestScreen() {
+                const repEl = document.getElementById('repDisplay');
+                const timerEl = document.getElementById('timerDisplay');
+                const stateEl = document.getElementById('stateLabel');
+
+                // Update rep display
+                if (stateMachine.state === States.COUNTDOWN) {
+                    repEl.textContent = `${appData.name} · ${appData.hand} · ${GRIPS[appData.grip]}`;
+                } else {
+                    repEl.textContent = `Rep ${stateMachine.currentRep + 1} / ${CONFIG.TOTAL_REPS}`;
+                }
+
+                // Update timer
+                timerEl.textContent = stateMachine.timeRemaining;
+
+                // Update state label (colour comes from the phase stage, not the label)
+                switch (stateMachine.state) {
+                    case States.COUNTDOWN:
+                        stateEl.textContent = 'GET READY';
+                        break;
+                    case States.HANGING:
+                        stateEl.textContent = 'PULL';
+                        break;
+                    case States.REST:
+                        stateEl.textContent = 'REST';
+                        break;
+                }
+
+                // Update live weight display
+                const liveWeightEl = document.getElementById('liveWeight');
+                if (stateMachine.state === States.HANGING) {
+                    liveWeightEl.style.visibility = 'visible';
+                } else {
+                    liveWeightEl.style.visibility = 'hidden';
+                }
+
+                // Update chart
+                this.renderLiveChart();
+
+                // If test is complete, show results
+                if (stateMachine.state === States.COMPLETE) {
+                    scaleIntegration.stopSignalMonitoring();
+                    scaleIntegration.restoreDefaults();
+                    this.showResults();
+                }
+            }
+
+            renderLiveChart() {
+                const chartEl = document.getElementById('liveChart');
+                chartEl.innerHTML = '';
+
+                const maxForce = Math.max(...stateMachine.repData.map(r => r.average), 1);
+
+                for (let i = 0; i < CONFIG.TOTAL_REPS; i++) {
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+
+                    if (CONFIG.CF_REPS.includes(i)) {
+                        bar.classList.add('cf-rep');
+                    }
+
+                    if (i < stateMachine.repData.length) {
+                        const repData = stateMachine.repData[i];
+                        const height = (repData.average / maxForce) * 100;
+                        bar.style.height = `${height}%`;
+
+                        if (repData.unreliable) {
+                            bar.classList.add('unreliable');
+                        }
+                    }
+
+                    chartEl.appendChild(bar);
+                }
+            }
+
+            updateLiveReadingDisplay(weight, max) {
+                if (this.currentScreen === 'live') {
+                    document.getElementById('liveCurrentWeight').textContent = `${weight.toFixed(1)} kg`;
+                    document.getElementById('liveMaxWeight').textContent = `${max.toFixed(1)} kg`;
+                }
+            }
+
+            updateLiveWeight(weight) {
+                if (stateMachine.state === States.HANGING) {
+                    const liveWeightEl = document.getElementById('liveWeight');
+                    const elapsed = Date.now() - stateMachine.hangStartTime;
+                    if (elapsed >= CONFIG.WINDOW_START_MS && elapsed <= CONFIG.WINDOW_END_MS && stateMachine.currentAverage > 0) {
+                        liveWeightEl.textContent = `${weight.toFixed(1)} kg (Avg: ${stateMachine.currentAverage.toFixed(1)} kg)`;
+                    } else {
+                        liveWeightEl.textContent = `${weight.toFixed(1)} kg`;
+                    }
+                }
+            }
+
+            updateSignalIndicator(show) {
+                const indicator = document.getElementById('signalIndicator');
+                if (show) {
+                    indicator.classList.add('visible');
+                } else {
+                    indicator.classList.remove('visible');
+                }
+            }
+
+            showResults() {
+                this.showScreen('results');
+
+                // Extract average values from repData
+                const cfRepData = CONFIG.CF_REPS.map(i => stateMachine.repData[i]);
+                const cfValues = cfRepData.map(r => r.average);
+                const cf = cfValues.reduce((sum, val) => sum + val, 0) / cfValues.length;
+                const cfMin = Math.min(...cfRepData.map(r => r.minimum));
+                const ratio = cf / appData.bodyweight;
+                const arcZone = cf * 0.8;
+                const thresholdZone = `${arcZone.toFixed(1)} - ${cf.toFixed(1)} kg`;
+
+                // Check for unreliable reps
+                const unreliableReps = stateMachine.repData
+                    .map((r, idx) => r.unreliable ? idx + 1 : null)
+                    .filter(idx => idx !== null);
+
+                // Display CF
+                const handLabel = appData.hand.charAt(0).toUpperCase() + appData.hand.slice(1);
+                document.getElementById('resultsSubtitle').textContent =
+                    `${appData.name} · ${handLabel} hand · ${GRIPS[appData.grip]} · ${stateMachine.allReadings.length} readings captured`;
+                document.getElementById('cfDisplay').textContent = `Critical Force: ${cf.toFixed(1)} kg`;
+                document.getElementById('ratioValue').textContent = `${ratio.toFixed(2)}x`;
+                document.getElementById('arcValue').textContent = `${arcZone.toFixed(1)} kg`;
+                document.getElementById('thresholdValue').textContent = thresholdZone;
+
+                // Display warning if any reps are unreliable
+                const existingWarning = document.querySelector('.warning-message');
+                if (existingWarning) {
+                    existingWarning.remove();
+                }
+
+                if (unreliableReps.length > 0) {
+                    const warning = document.createElement('div');
+                    warning.className = 'warning-message';
+                    warning.textContent = `Warning: ${unreliableReps.length} rep(s) had fewer than ${CONFIG.MIN_VALID_READINGS} valid readings (marked in amber/orange). Reps: ${unreliableReps.join(', ')}`;
+                    const resultsContainer = document.querySelector('.results-container');
+                    resultsContainer.insertBefore(warning, document.getElementById('cfDisplay'));
+                }
+
+                // Display CF rep values
+                document.getElementById('cfRepValues').innerHTML = cfRepData
+                    .map((repData, idx) => {
+                        const repNum = CONFIG.CF_REPS[idx] + 1;
+                        const unreliableTag = repData.unreliable ? ' (unreliable)' : '';
+                        return `<div>Rep ${repNum}: ${repData.average.toFixed(1)} kg${unreliableTag}</div>`;
+                    })
+                    .join('');
+
+                // Render bar chart
+                this.renderResultsChart(cf);
+
+                // Render overlay chart
+                const currentDataset = {
+                    name: appData.name,
+                    hand: handLabel,
+                    grip: GRIPS[appData.grip],
+                    cf,
+                    cfRatio: ratio,
+                    bodyweight: appData.bodyweight,
+                    repData: stateMachine.repData,
+                    unreliableReps
+                };
+                const allDatasets = [currentDataset, ...compareSystem.datasets];
+                overlayChart.render(
+                    document.getElementById('resultsOverlayChart'),
+                    document.getElementById('resultsOverlayLegend'),
+                    allDatasets
+                );
+                const hasRatio = overlayChart.render(
+                    document.getElementById('resultsRatioChart'),
+                    document.getElementById('resultsRatioLegend'),
+                    allDatasets,
+                    { mode: 'ratio' }
+                );
+                document.getElementById('resultsRatioSection').style.display = hasRatio ? '' : 'none';
+
+                // Store results for saving
+                appData.results = {
+                    cf,
+                    cfMin,
+                    ratio,
+                    arcZone,
+                    thresholdZone,
+                    cfValues,
+                    allReps: stateMachine.repData,
+                    allReadings: stateMachine.allReadings,
+                    unreliableReps
+                };
+            }
+
+            renderResultsChart(cf) {
+                const chartEl = document.getElementById('resultsChart');
+                chartEl.innerHTML = '';
+
+                const maxForce = Math.max(...stateMachine.repData.map(r => r.average));
+                const cfLinePosition = (cf / maxForce) * 100;
+
+                // Position CF line
+                const cfLine = document.getElementById('cfLine');
+                cfLine.style.bottom = `${cfLinePosition}%`;
+                cfLine.innerHTML = `<span class="cf-line-label">CF: ${cf.toFixed(1)} kg</span>`;
+
+                // Render bars
+                for (let i = 0; i < stateMachine.repData.length; i++) {
+                    const repData = stateMachine.repData[i];
+                    const bar = document.createElement('div');
+                    bar.className = 'bar';
+
+                    if (CONFIG.CF_REPS.includes(i)) {
+                        bar.classList.add('cf-rep');
+                    }
+
+                    if (repData.unreliable) {
+                        bar.classList.add('unreliable');
+                    }
+
+                    const height = (repData.average / maxForce) * 100;
+                    bar.style.height = `${height}%`;
+
+                    chartEl.appendChild(bar);
+                }
+            }
+
+            async saveResults() {
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
+                // Underscores separate filename fields, so strip them from the name
+                const nameSlug = appData.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'unnamed';
+                const filename = `cf-test-${timestamp}_${nameSlug}_${appData.hand}_${appData.grip}.json`;
+
+                const data = {
+                    timestamp: now.toISOString(),
+                    name: appData.name,
+                    bodyweight: appData.bodyweight,
+                    hand: appData.hand,
+                    grip: appData.grip,
+                    gripLabel: GRIPS[appData.grip],
+                    protocol: {
+                        totalReps: CONFIG.TOTAL_REPS,
+                        countdownDuration: CONFIG.COUNTDOWN_DURATION,
+                        hangDuration: CONFIG.HANG_DURATION,
+                        restDuration: CONFIG.REST_DURATION,
+                        windowStartMs: CONFIG.WINDOW_START_MS,
+                        windowEndMs: CONFIG.WINDOW_END_MS,
+                        noiseThreshold: CONFIG.NOISE_THRESHOLD
+                    },
+                    criticalForce: appData.results.cf,
+                    cfMin: appData.results.cfMin,
+                    cfRatio: appData.results.ratio,
+                    arcZone: appData.results.arcZone,
+                    thresholdZone: appData.results.thresholdZone,
+                    cfRepValues: appData.results.cfValues,
+                    unreliableReps: appData.results.unreliableReps,
+                    allReps: appData.results.allReps.map((rep, idx) => ({
+                        rep: idx + 1,
+                        average: rep.average,
+                        minimum: rep.minimum,
+                        peak: rep.peak,
+                        unreliable: rep.unreliable,
+                        rawReadings: rep.rawReadings,
+                        rawCount: rep.stats.rawCount,
+                        windowedReadings: rep.stats.windowCount,
+                        filteredReadings: rep.stats.filteredCount
+                    })),
+                    // Every reading the scale emitted for the whole test, including
+                    // countdown and rest, timestamped from the start of the test
+                    totalReadings: appData.results.allReadings.length,
+                    allReadings: appData.results.allReadings
+                };
+
+                try {
+                    // For browser environment, trigger download
+                    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+
+                    alert(`Results saved as ${filename}`);
+                } catch (error) {
+                    console.error('Failed to save results:', error);
+                    alert('Failed to save results. See console for details.');
+                }
+            }
+
+            resetToSetup() {
+                stateMachine.reset();
+                scaleIntegration.stopSignalMonitoring();
+                scaleIntegration.restoreDefaults();
+                this.showScreen('setup');
+            }
+
+            async handleFileUpload(fileList) {
+                if (!fileList || fileList.length === 0) return;
+                const results = await compareSystem.loadFiles(fileList);
+                this.renderCompareCards(results);
+                this.renderCompareChart();
+            }
+
+            renderCompareCards(loadResults) {
+                const container = document.getElementById('compareCards');
+                const errors = loadResults.filter(r => !r.success);
+
+                const cardsHTML = compareSystem.datasets.map((ds, i) => {
+                    const color = PALETTE[i % PALETTE.length];
+                    const dateStr = ds.date ? ds.date.toLocaleDateString() : '—';
+                    return `<div class="compare-card">
+                        <div class="compare-card-header">
+                            <span class="card-color-dot" style="background:${color}"></span>
+                            <span class="compare-name">${ds.name}</span>
+                            <span class="compare-hand">${ds.hand}</span>
+                        </div>
+                        <div class="compare-date">${dateStr} · ${ds.grip || '—'}</div>
+                        <div class="compare-metrics">
+                            <div class="compare-metric">
+                                <span class="compare-metric-label">Critical Force</span>
+                                <span class="compare-metric-value">${ds.cf.toFixed(1)} kg</span>
+                            </div>
+                            <div class="compare-metric">
+                                <span class="compare-metric-label">CF:BW Ratio</span>
+                                <span class="compare-metric-value">${ds.cfRatio.toFixed(2)}x</span>
+                            </div>
+                            <div class="compare-metric">
+                                <span class="compare-metric-label">ARC Zone Ceiling</span>
+                                <span class="compare-metric-value">${ds.arcZone.toFixed(1)} kg</span>
+                            </div>
+                            <div class="compare-metric">
+                                <span class="compare-metric-label">Threshold Zone</span>
+                                <span class="compare-metric-value">${ds.thresholdZone}</span>
+                            </div>
+                        </div>
+                    </div>`;
+                }).join('');
+
+                const errorsHTML = errors.map(r =>
+                    `<div class="compare-error"><strong>${r.filename}:</strong> ${r.error}</div>`
+                ).join('');
+
+                container.innerHTML = cardsHTML + errorsHTML;
+            }
+
+            renderCompareChart() {
+                const section = document.getElementById('compareChartSection');
+                const ratioSection = document.getElementById('compareRatioSection');
+                if (compareSystem.datasets.length === 0) {
+                    section.style.display = 'none';
+                    ratioSection.style.display = 'none';
+                    return;
+                }
+                section.style.display = 'block';
+                overlayChart.render(
+                    document.getElementById('compareOverlayChart'),
+                    document.getElementById('compareOverlayLegend'),
+                    compareSystem.datasets
+                );
+                const hasRatio = overlayChart.render(
+                    document.getElementById('compareRatioChart'),
+                    document.getElementById('compareRatioLegend'),
+                    compareSystem.datasets,
+                    { mode: 'ratio' }
+                );
+                ratioSection.style.display = hasRatio ? 'block' : 'none';
+            }
+        }
+
+        // ============================================
+        // OVERLAY CHART
+        // ============================================
+        const PALETTE = ['#a855f7', '#2dd4bf', '#fb7185', '#fbbf24'];
+
+        class OverlayChart {
+            fitCurve(repData, unreliableReps) {
+                const excluded = new Set(unreliableReps);
+                const points = repData
+                    .map((r, i) => ({ x: i + 1, y: r.average }))
+                    .filter((p, i) => !excluded.has(i + 1) && p.y > 0);
+
+                if (points.length < 3) return null;
+
+                const ys = points.map(p => p.y);
+                let a = Math.max(...ys) - Math.min(...ys);
+                let b = 0.1;
+                let c = Math.min(...ys);
+                const n = points.length;
+
+                for (let iter = 0; iter < 8000; iter++) {
+                    let ga = 0, gb = 0, gc = 0;
+                    for (const { x, y } of points) {
+                        const e = Math.exp(-b * x);
+                        const err = a * e + c - y;
+                        ga += err * e;
+                        gb += err * (-a * x * e);
+                        gc += err;
+                    }
+                    a -= (2 / n) * 0.0001  * ga;
+                    b -= (2 / n) * 0.000001 * gb;
+                    c -= (2 / n) * 0.0001  * gc;
+                }
+
+                return { a, b, c, points };
+            }
+
+            eval(a, b, c, x) {
+                return a * Math.exp(-b * x) + c;
+            }
+
+            /**
+             * Bodyweight for a dataset: the stored value, or backed out of the
+             * CF:BW ratio for files saved without it.
+             */
+            bodyweightOf(ds) {
+                if (ds.bodyweight > 0) return ds.bodyweight;
+                if (ds.cfRatio > 0 && ds.cf > 0) return ds.cf / ds.cfRatio;
+                return 0;
+            }
+
+            /** Restates every force as a multiple of that athlete's bodyweight. */
+            toBodyweightSeries(datasets) {
+                return datasets.map((ds, i) => {
+                    const bw = this.bodyweightOf(ds);
+                    if (!bw) return null;
+                    return {
+                        ...ds,
+                        colorIndex: i,
+                        bodyweight: bw,
+                        cf: ds.cf / bw,
+                        repData: ds.repData.map(r => ({ ...r, average: r.average / bw }))
+                    };
+                }).filter(Boolean);
+            }
+
+            /**
+             * @param {Object} [options] - options.mode 'force' (kg, default) or
+             *   'ratio' (× bodyweight)
+             * @returns {boolean} False when there is nothing to draw
+             */
+            render(chartEl, legendEl, inputDatasets, options = {}) {
+                const mode = options.mode === 'ratio' ? 'ratio' : 'force';
+                chartEl.innerHTML = '';
+                legendEl.innerHTML = '';
+                if (!inputDatasets || inputDatasets.length === 0) return false;
+
+                // Colours stay tied to the original order so a dataset keeps the
+                // same colour in both charts, even if it's missing from one.
+                const datasets = mode === 'ratio'
+                    ? this.toBodyweightSeries(inputDatasets)
+                    : inputDatasets.map((ds, i) => ({ ...ds, colorIndex: i }));
+                if (datasets.length === 0) return false;
+
+                const fits = datasets.map(ds => this.fitCurve(ds.repData, ds.unreliableReps || []));
+
+                // Collect Y range
+                let yVals = [];
+                datasets.forEach(ds => ds.repData.forEach(r => { if (r.average > 0) yVals.push(r.average); }));
+                fits.forEach(fit => {
+                    if (!fit) return;
+                    for (let x = 1; x <= 24; x++) yVals.push(this.eval(fit.a, fit.b, fit.c, x));
+                });
+                datasets.forEach(ds => yVals.push(ds.cf));
+                if (yVals.length === 0) return false;
+
+                const rawMin = Math.min(...yVals);
+                const rawMax = Math.max(...yVals);
+                const pad = (rawMax - rawMin) * 0.1 || 2;
+                const yMin = rawMin - pad, yMax = rawMax + pad;
+
+                const VW = 700, VH = 280, ML = 54, MR = 16, MT = 16, MB = 44;
+                const CW = VW - ML - MR, CH = VH - MT - MB;
+                const sx = x => ML + ((x - 1) / 23) * CW;
+                const sy = y => MT + CH - ((y - yMin) / (yMax - yMin)) * CH;
+                const ns = t => document.createElementNS('http://www.w3.org/2000/svg', t);
+
+                const svg = ns('svg');
+                svg.setAttribute('viewBox', `0 0 ${VW} ${VH}`);
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
+
+                // Grid + Y labels
+                for (let i = 0; i <= 5; i++) {
+                    const yv = yMin + (yMax - yMin) * (i / 5);
+                    const gy = sy(yv);
+                    const g = ns('line');
+                    g.setAttribute('x1', ML); g.setAttribute('y1', gy);
+                    g.setAttribute('x2', ML + CW); g.setAttribute('y2', gy);
+                    g.setAttribute('stroke', '#2d2d2d'); g.setAttribute('stroke-width', '1');
+                    svg.appendChild(g);
+                    const t = ns('text');
+                    t.setAttribute('x', ML - 6); t.setAttribute('y', gy + 4);
+                    t.setAttribute('text-anchor', 'end'); t.setAttribute('fill', '#666');
+                    t.setAttribute('font-size', '11'); t.setAttribute('font-family', 'sans-serif');
+                    t.textContent = mode === 'ratio' ? yv.toFixed(2) : yv.toFixed(0);
+                    svg.appendChild(t);
+                }
+
+                // Y axis label
+                const yl = ns('text');
+                yl.setAttribute('transform', `rotate(-90)`);
+                yl.setAttribute('x', -(MT + CH / 2)); yl.setAttribute('y', 13);
+                yl.setAttribute('text-anchor', 'middle'); yl.setAttribute('fill', '#555');
+                yl.setAttribute('font-size', '11'); yl.setAttribute('font-family', 'sans-serif');
+                yl.textContent = mode === 'ratio' ? 'Force (× bodyweight)' : 'Force (kg)';
+                svg.appendChild(yl);
+
+                // X ticks + labels
+                for (let rep = 1; rep <= 24; rep += 4) {
+                    const gx = sx(rep);
+                    const tk = ns('line');
+                    tk.setAttribute('x1', gx); tk.setAttribute('y1', MT + CH);
+                    tk.setAttribute('x2', gx); tk.setAttribute('y2', MT + CH + 5);
+                    tk.setAttribute('stroke', '#444'); tk.setAttribute('stroke-width', '1');
+                    svg.appendChild(tk);
+                    const lt = ns('text');
+                    lt.setAttribute('x', gx); lt.setAttribute('y', MT + CH + 18);
+                    lt.setAttribute('text-anchor', 'middle'); lt.setAttribute('fill', '#666');
+                    lt.setAttribute('font-size', '11'); lt.setAttribute('font-family', 'sans-serif');
+                    lt.textContent = rep;
+                    svg.appendChild(lt);
+                }
+
+                // X axis label
+                const xl = ns('text');
+                xl.setAttribute('x', ML + CW / 2); xl.setAttribute('y', VH - 4);
+                xl.setAttribute('text-anchor', 'middle'); xl.setAttribute('fill', '#555');
+                xl.setAttribute('font-size', '11'); xl.setAttribute('font-family', 'sans-serif');
+                xl.textContent = 'Rep';
+                svg.appendChild(xl);
+
+                // Axis borders
+                for (const [x1,y1,x2,y2] of [[ML,MT,ML,MT+CH],[ML,MT+CH,ML+CW,MT+CH]]) {
+                    const ax = ns('line');
+                    ax.setAttribute('x1',x1); ax.setAttribute('y1',y1);
+                    ax.setAttribute('x2',x2); ax.setAttribute('y2',y2);
+                    ax.setAttribute('stroke', '#444'); ax.setAttribute('stroke-width', '1');
+                    svg.appendChild(ax);
+                }
+
+                // Per dataset
+                datasets.forEach((ds, i) => {
+                    const color = PALETTE[(ds.colorIndex ?? i) % PALETTE.length];
+                    const fit = fits[i];
+
+                    // Faded raw dots
+                    ds.repData.forEach((r, ri) => {
+                        if (r.average <= 0) return;
+                        const c = ns('circle');
+                        c.setAttribute('cx', sx(ri + 1)); c.setAttribute('cy', sy(r.average));
+                        c.setAttribute('r', '3'); c.setAttribute('fill', color);
+                        c.setAttribute('opacity', '0.25');
+                        svg.appendChild(c);
+                    });
+
+                    // CF dashed reference line
+                    const cy = sy(ds.cf);
+                    const cl = ns('line');
+                    cl.setAttribute('x1', ML); cl.setAttribute('y1', cy);
+                    cl.setAttribute('x2', ML + CW); cl.setAttribute('y2', cy);
+                    cl.setAttribute('stroke', color); cl.setAttribute('stroke-width', '1.5');
+                    cl.setAttribute('stroke-dasharray', '6,4'); cl.setAttribute('opacity', '0.6');
+                    svg.appendChild(cl);
+
+                    // Fitted curve
+                    if (fit) {
+                        let d = '';
+                        for (let x = 1; x <= 24; x += 0.25) {
+                            const px = sx(x).toFixed(2), py = sy(this.eval(fit.a, fit.b, fit.c, x)).toFixed(2);
+                            d += (x === 1 ? 'M' : 'L') + `${px},${py} `;
+                        }
+                        const path = ns('path');
+                        path.setAttribute('d', d.trim());
+                        path.setAttribute('stroke', color); path.setAttribute('stroke-width', '2.5');
+                        path.setAttribute('fill', 'none');
+                        svg.appendChild(path);
+                    }
+                });
+
+                chartEl.appendChild(svg);
+
+                // HTML legend
+                legendEl.innerHTML = datasets.map((ds, i) => {
+                    const color = PALETTE[(ds.colorIndex ?? i) % PALETTE.length];
+                    const cfText = mode === 'ratio'
+                        ? `CF ${ds.cf.toFixed(2)}× BW (${ds.bodyweight.toFixed(1)} kg)`
+                        : `CF ${ds.cf.toFixed(1)} kg`;
+                    return `<div class="legend-item">
+                        <span class="legend-swatch" style="background:${color}"></span>
+                        <span class="legend-label">${ds.name} · ${ds.hand}${ds.grip ? ' · ' + ds.grip : ''} · ${cfText}</span>
+                    </div>`;
+                }).join('');
+
+                return true;
+            }
+        }
+
+        // ============================================
+        // COMPARE SYSTEM
+        // ============================================
+        class CompareSystem {
+            constructor() {
+                this.datasets = [];
+            }
+
+            titleCase(str) {
+                return String(str)
+                    .split(/[-\s]+/)
+                    .filter(Boolean)
+                    .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+                    .join(' ');
+            }
+
+            parseFilename(filename) {
+                const base = filename.replace(/\.json$/i, '').replace(/^cf-test-/, '');
+                const parts = base.split('_');
+                const tsStr = parts[0].replace(/T(\d{2})-(\d{2})-(\d{2})/, 'T$1:$2:$3');
+                const date = new Date(tsStr);
+                return {
+                    name: parts[1] ? this.titleCase(parts[1]) : null,
+                    hand: parts[2] ? this.titleCase(parts[2]) : null,
+                    grip: parts[3] ? this.titleCase(parts[3]) : null,
+                    date: isNaN(date.getTime()) ? null : date
+                };
+            }
+
+            async loadFiles(fileList) {
+                const results = [];
+                for (const file of fileList) {
+                    try {
+                        const text = await file.text();
+                        const json = JSON.parse(text);
+                        const info = this.parseFilename(file.name);
+
+                        for (const field of ['criticalForce', 'cfRatio', 'arcZone', 'thresholdZone', 'allReps']) {
+                            if (!(field in json)) throw new Error(`Missing required field: "${field}"`);
+                        }
+                        if (!Array.isArray(json.allReps) || json.allReps.length === 0) {
+                            throw new Error('allReps must be a non-empty array');
+                        }
+
+                        // Prefer the values stored in the file; fall back to the filename
+                        // for results saved before name/grip were recorded.
+                        const name = json.name || info.name;
+                        const hand = json.hand || info.hand;
+                        const grip = json.gripLabel || json.grip || info.grip;
+                        if (!name || !hand) {
+                            throw new Error('No name/hand in file or filename (cf-test-TIMESTAMP_NAME_HAND_GRIP.json)');
+                        }
+                        const jsonDate = json.timestamp ? new Date(json.timestamp) : null;
+                        const date = jsonDate && !isNaN(jsonDate.getTime()) ? jsonDate : info.date;
+
+                        const dataset = {
+                            name: this.titleCase(name),
+                            hand: this.titleCase(hand),
+                            grip: grip ? this.titleCase(grip) : '—',
+                            date,
+                            cf: json.criticalForce,
+                            cfRatio: json.cfRatio,
+                            bodyweight: json.bodyweight,
+                            arcZone: json.arcZone,
+                            thresholdZone: json.thresholdZone,
+                            repData: json.allReps,
+                            unreliableReps: json.unreliableReps || [],
+                            filename: file.name
+                        };
+
+                        const idx = this.datasets.findIndex(d => d.filename === file.name);
+                        if (idx >= 0) this.datasets[idx] = dataset; else this.datasets.push(dataset);
+
+                        results.push({ success: true, dataset });
+                    } catch (err) {
+                        results.push({ success: false, filename: file.name, error: err.message });
+                    }
+                }
+                return results;
+            }
+        }
+
+        // ============================================
+        // APPLICATION DATA
+        // ============================================
+        const appData = {
+            name: '',
+            bodyweight: 0,
+            hand: 'left',
+            grip: 'half-crimp',
+            results: null
+        };
+
+        // ============================================
+        // INITIALIZE APPLICATION
+        // ============================================
+        const stateMachine = new StateMachine();
+        const audio = new AudioSystem();
+        const scaleIntegration = new ScaleIntegration();
+        const overlayChart = new OverlayChart();
+        const compareSystem = new CompareSystem();
+        const ui = new UISystem();
+
+        ui.showScreen('setup'); // initialize nav state
+
+        console.log('Critical Force Test Application initialized');
+    </script>
+</body>
+</html>
