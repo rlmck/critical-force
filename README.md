@@ -74,68 +74,85 @@ ceiling is 80% of it. All of that is `computeResults()` in
 `js/analysis.js`, in one place, so a test on screen tonight and the
 same test read back next month cannot drift apart.
 
-## History, filtering, and reading one test
+## The history screen
 
-The **History** screen lists every saved test, newest first, and
-filters by athlete, grip, hand and recency. The options are built from
+Every saved test, newest first, and **each one draws its own trace in
+place**. A list of names with a link to a graph is a list of promises;
+the chart is the thing you came to look at, so it is on the screen.
+
+Filter by athlete, grip, hand and recency. The options are built from
 the tests actually present rather than a fixed list — the grips on
 record are the authority, not the two the app happens to offer today.
-Tapping a row adds it to the decay-curve overlay; the chevron opens it.
+A filter value that stops being available is dropped rather than left
+selected, so you can never filter yourself into an empty screen with
+no way back.
 
-**Old exports can be brought in.** Drop them on the History screen and
-they read immediately; *Import to database* makes them permanent. The
+**Old exports can be brought in.** Drop them on the screen and they
+read immediately; *Import to database* makes them permanent. The
 document id comes from the test's own timestamp, so importing the same
-file twice corrects the record rather than doubling it, and a
-half-finished import can simply be run again.
+file twice corrects the record rather than doubling it.
 
-### The detail view
+### The chart
 
-One test, drawn as it happened: every reading as a point on a line,
-with each rep's averaging window laid on top at that rep's average,
-across the 2-6s slice that counts. The point is the relationship - you
-can watch the average ignore the grab and the drop-off rather than
-taking the headline on trust. Critical force runs across the whole
-chart.
+Every reading as a line, each rep's averaging window laid on top at
+that rep's average across the 2–6s slice that counts, and critical
+force running underneath. You can watch the average ignore the grab
+and the drop-off rather than taking the headline on trust.
 
-**The chart is drawn wide and scrolls sideways.** Each rep gets about
-108px. Squeezed onto one screen a 24-rep test gives each rep 40px, and
-a rep holds a dozen readings, so the shape of the pull collapses into
-a vertical smudge. Width is the difference between seeing the readings
-and seeing a smear.
+Three rules it is built on:
 
-**Every reading is a dot.** The WH-C06 broadcasts roughly five times a
-second and about 38% of those packets never arrive - so a 7-second
-hang holds somewhere between 4 and 26 readings rather than the ~34 the
-cadence implies. The dots make that countable: a gap between them is a
-packet that was sent and not received, not a steady hand. If you want
-a denser trace the fix is at the radio, not the chart - keep the
-laptop or phone close to the scale and clear of the body.
+**All 24 reps, always in view.** The chart is drawn at the pixel width
+of its container and redrawn when that changes. A chart you scroll
+sideways has no shape, and the shape of the decay is the only reason
+to draw it.
 
-The line is drawn with mitred joins on purpose. The noise in a hang is
-the signal; rounding the corners sands the spikes off and draws a
-smooth curve nobody measured.
+**Loudest to quietest: measurement, answer, working.** The orange
+window marks are the measurement and carry the most ink. The red
+dashed line is the critical force. The trace is deliberately dim — it
+is the working behind the number, and when it was the brightest thing
+on the card the noise was shouting down the result.
+
+**One y-scale across the whole screen.** Stacked charts imply they can
+be compared, and scaling each to its own maximum destroys that: a 10 kg
+critical force and a 25 kg one would sit at the same height on two
+cards an inch apart.
+
+**Every reading is a dot where they are far enough apart to count.**
+The WH-C06 broadcasts roughly five times a second and about 38% of
+those packets never arrive, so a 7-second hang holds between 4 and 26
+readings rather than the ~34 the cadence implies. A hang with fewer
+than six readings gets its dots and no line — joining three points
+draws a slash from the floor to the peak and back, which reads as a
+rendering fault rather than as a rep the radio missed. If you want a
+denser trace the fix is at the radio: keep the receiving device close
+to the scale and clear of your body.
+
+A rep that averaged zero recorded nothing usable. That is missing
+data, not a rep at zero force, so it is marked on the floor rather
+than silently skipped.
 
 **Three generations of export are in circulation and they do not carry
-the same thing**, so `traceFor()` in `js/results.js` reports which it
-found and the chart says so. A sparser record should not look like a
-worse test:
+the same thing.** All three draw the same chart on the same axes — the
+sparser ones simply have less on them, and say so with a small label:
 
-| kind | what the file kept | what you see |
+| label | what the file kept | what you see |
 |---|---|---|
-| `session` | the whole test, rests included | the true curve, dropping to the floor between reps |
-| `reps` | each hang, nothing between them | reps in order at nominal spacing - exact in force, approximate in time |
-| `none` | a *count* of readings, not the readings | no curve, said plainly, and the per-rep bars instead |
+| *(none)* | the whole test, rests included | the true curve, dropping to the floor between reps |
+| `hangs only` | each hang, nothing between them | reps at nominal spacing — exact in force, approximate in time |
+| `averages only` | a *count* of readings, not the readings | the window marks alone, no trace |
 
-### Deleting a test
+### Comparing and deleting
 
-At the foot of the detail view, two taps deep: the first press arms it
-and says what it is about to do, the second does it, and it disarms
-itself after five seconds. A test takes four minutes to record and
-cannot be repeated, so a stray press and an extra press do not cost
-the same.
+**Compare** adds a test to the decay-curve overlay above the list, up
+to four at once — a fifth line stops being a comparison and becomes a
+thicket.
 
-A test that is only a dropped file is removed from the session and the
-file on disk is untouched.
+**Delete** is two taps: the first arms it and says what it is about to
+do, the second does it, and it disarms itself after five seconds. A
+test takes four minutes to record and cannot be repeated, so a stray
+press and an extra press do not cost the same. Deleting a test that is
+only a dropped file removes it from the session and leaves the file
+alone.
 
 ## The database
 
@@ -227,7 +244,8 @@ history.
 | `js/engine.js` | The protocol, the arithmetic, the scale. Knows nothing about screens. |
 | `js/analysis.js` | What the reps add up to, and the decay-curve chart. |
 | `js/results.js` | A finished test as a document and as a file, and the trace normaliser. The Coach seam. |
-| `js/trace.js` | One test drawn as it happened: readings, averaging windows, critical force. |
+| `js/trace.js` | One test drawn as it happened: readings, averaging windows, critical force. Sizes itself to its container. |
+| `css/app.css` | Design tokens at the top — three greys, two accents, one type scale, one spacing scale. Add a tenth grey and it starts looking like a debug view. |
 | `js/store.js` | Firestore: where a test goes and how it comes back. |
 | `js/layout.js` | Which of the two versions you get. |
 | `js/views/base.js` | Every behaviour both layouts share. |
