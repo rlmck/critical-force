@@ -54,14 +54,69 @@ ceiling is 80% of it.
 
 ## Where the results go
 
-A finished test is a JSON file holding every headline number, the per-rep
-breakdown, and the raw trace of every reading the scale emitted — including
-the countdown and the rests, so the whole session can be replayed.
+A finished test is filed straight onto an athlete's record in
+[Coach](https://github.com/rlmck/climbing-coach) — the same Firestore
+project, the same document its uploader would have produced. Sign in at
+the top of the setup screen, pick the athlete, and the test is on their
+record before you have taken the scale off the board.
 
-Those files are the input to [climbing-coach](https://github.com/rlmck/climbing-coach),
-which parses them in `js/cftest.js` and files them onto an athlete's record.
-Its parser reads the athlete, grip and hand out of the *filename*.
+**Signing in gates filing, not testing.** With nobody signed in, no
+athlete picked, or no network, the tools work exactly as they always
+did and the test downloads as JSON. That path is the fallback, not a
+failure — four minutes of hanging is not repeatable, so the file is
+written either way.
 
-Test exports are gitignored. They are real people's bodyweight and finger
-strength, and they belong on an athlete's record rather than in this
-history.
+**Only a coach can file a test.** That is Coach's rule and not this
+app's: `firestore.rules` there says a critical-force test is written by
+the coach and nobody else, because the load cell is the coach's. An
+account that isn't the coach on that athlete's record is refused by the
+server. Nothing in this repo changes those rules.
+
+### The document
+
+Keyed `{date}_{grip}` in `athletes/{id}/criticalForce`, which is doing
+two jobs. A test is two files, so running the left hand and then the
+right merges into one document with two hands rather than two documents
+with one hand each. And re-running a grip because the first attempt was
+a mess corrects the record instead of doubling it.
+
+The parse is not done here. `vendor/cftest.js` is a verbatim copy of
+Coach's own reader, so there is no second implementation to drift —
+see [vendor/README.md](vendor/README.md).
+
+### The filename still matters
+
+The downloaded file is the fallback path, and Coach's uploader reads
+the athlete, grip and hand out of its *name*:
+
+```
+Maks_half_crimp_left_cf-test-2026-07-20T18-35-30.json
+name ─┘ grip ────┘ hand ┘        stamp ┘
+```
+
+This app used to emit `cf-test-{stamp}_{name}_{hand}_{grip}.json`,
+which Coach's parser reads as `{athlete: null, grip: null, hand: null}`
+— every field wrong, silently, with the grip defaulting to half-crimp.
+Every export had to be renamed by hand before it could be uploaded.
+It now emits the format above.
+
+Grips go out as Coach's tokens rather than this app's: `3-finger-drag`
+underscores to `3_finger_drag`, which is not in Coach's vocabulary, so
+it matches the trailing `drag` and swallows `3 finger` into the
+athlete's name.
+
+Test exports are gitignored. They are real people's bodyweight and
+finger strength, and they belong on an athlete's record rather than in
+this history.
+
+## Layout
+
+| | |
+|---|---|
+| `js/config.js` | Which Firebase project. Blank the `apiKey` and filing switches off cleanly. |
+| `js/firebase.js` | The pinned SDK, dynamically imported. A trimmed cousin of Coach's file of the same name. |
+| `js/ct-shim.js` | The grip list and date helpers the vendored parser stands on. Loads before it. |
+| `js/sync.js` | Sign-in, the roster, and the merge that files a test. |
+| `vendor/cftest.js` | Coach's parser, verbatim. Do not edit here. |
+
+Load order is a dependency order and `index.html` states it as one.

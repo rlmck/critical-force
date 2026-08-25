@@ -65,6 +65,72 @@
             background: #00cc66;
         }
 
+        /* ── filing to Coach ──────────────────────────────
+           A strip at the top of setup that says where a finished test
+           is going. Quiet when it's working: the useful state is one
+           line of text, not a panel. */
+        .sync-bar {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            flex-wrap: wrap;
+            padding: 0.75rem 1rem;
+            margin-bottom: 2rem;
+            background: #232323;
+            border: 1px solid #3a3a3a;
+            border-left: 3px solid #4a4a4a;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            color: #b0b0b0;
+        }
+        .sync-bar.linked { border-left-color: #00cc66; }
+        .sync-bar.offline { border-left-color: #6a6a6a; }
+        .sync-bar .sync-text { flex: 1; min-width: 12rem; }
+        .sync-bar .sync-who { color: #e0e0e0; }
+        .sync-bar button {
+            width: auto;
+            margin: 0;
+            padding: 0.4rem 0.9rem;
+            font-size: 0.9rem;
+        }
+        .sync-fields {
+            display: none;
+            gap: 0.75rem;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .sync-fields.open { display: flex; }
+        .sync-fields input {
+            flex: 1;
+            min-width: 11rem;
+            padding: 0.55rem;
+            font-size: 1rem;
+        }
+        .sync-error {
+            width: 100%;
+            color: #ff8a80;
+            font-size: 0.9rem;
+        }
+        select#athletePick {
+            width: 100%;
+            padding: 0.75rem;
+            font-size: 1.2rem;
+            background: #3a3a3a;
+            border: 2px solid #4a4a4a;
+            border-radius: 6px;
+            color: #fff;
+        }
+        select#athletePick:focus { outline: none; border-color: #0066cc; }
+        input:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .field-note {
+            margin-top: 0.4rem;
+            font-size: 0.85rem;
+            color: #8a8a8a;
+        }
+
         .form-group {
             margin-bottom: 2rem;
         }
@@ -780,6 +846,23 @@
             <div id="connectionDot" class="connection-dot"></div>
             <h1>Critical Force Test</h1>
 
+            <div id="syncBar" class="sync-bar offline">
+                <span class="sync-text" id="syncText">Checking for Coach…</span>
+                <button type="button" class="secondary" id="syncBtn" style="display:none"></button>
+                <div class="sync-fields" id="syncFields">
+                    <input type="email" id="syncEmail" placeholder="Coach email" autocomplete="username">
+                    <input type="password" id="syncPassword" placeholder="Password" autocomplete="current-password">
+                    <button type="button" id="syncGo">Sign in</button>
+                </div>
+                <div class="sync-error" id="syncError" style="display:none"></div>
+            </div>
+
+            <div class="form-group" id="athleteGroup" style="display:none">
+                <label for="athletePick">Athlete</label>
+                <select id="athletePick"></select>
+                <div class="field-note">The test files straight onto this athlete’s record in Coach.</div>
+            </div>
+
             <div class="form-group">
                 <label for="athleteName">Name</label>
                 <input type="text" id="athleteName" maxlength="40" placeholder="Ross" autocomplete="name">
@@ -918,6 +1001,16 @@
         </div>
     </div>
 
+    <!-- Coach's backend, as classic scripts so the module below is
+         untouched. Order matters: the shim supplies what the vendored
+         parser stands on, and the parser must exist before sync.js
+         calls it. -->
+    <script src="js/config.js"></script>
+    <script src="js/ct-shim.js"></script>
+    <script src="vendor/cftest.js"></script>
+    <script src="js/firebase.js"></script>
+    <script src="js/sync.js"></script>
+
     <script type="module">
         import BluetoothScale from './bluetooth-scale.js';
 
@@ -941,6 +1034,17 @@
         const GRIPS = {
             'half-crimp':    'Half Crimp',
             '3-finger-drag': '3 Finger Drag'
+        };
+
+        // The same grips in the vocabulary Coach's filename parser knows
+        // (see vendor/cftest.js, GRIP_TOKENS). These are not cosmetic:
+        // '3-finger-drag' underscored is '3_finger_drag', which is not a
+        // token Coach recognises, so it matches the trailing 'drag'
+        // instead and swallows the rest into the athlete's name. Emitting
+        // a token from its list is what keeps a downloaded file readable.
+        const COACH_GRIP_TOKEN = {
+            'half-crimp':    'half_crimp',
+            '3-finger-drag': 'three_finger_drag'
         };
 
         // ============================================
@@ -1714,9 +1818,16 @@
             async saveResults() {
                 const now = new Date();
                 const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, -5);
-                // Underscores separate filename fields, so strip them from the name
-                const nameSlug = appData.name.replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'unnamed';
-                const filename = `cf-test-${timestamp}_${nameSlug}_${appData.hand}_${appData.grip}.json`;
+                // Coach reads the athlete, grip and hand out of the filename
+                // and nothing else, so the order of these fields is a contract
+                // with vendor/cftest.js rather than a preference:
+                //   Maks_half_crimp_left_cf-test-2026-07-20T18-35-30.json
+                // A space in a name becomes an underscore because that is how
+                // Coach decodes it back — it joins the leading parts with
+                // spaces. Case is kept: the name is shown to a coach.
+                const nameSlug = appData.name.replace(/[^a-z0-9 ]+/gi, '').trim().replace(/\s+/g, '_') || 'Unnamed';
+                const gripToken = COACH_GRIP_TOKEN[appData.grip] || appData.grip.replace(/-/g, '_');
+                const filename = `${nameSlug}_${gripToken}_${appData.hand}_cf-test-${timestamp}.json`;
 
                 const data = {
                     timestamp: now.toISOString(),
@@ -1758,8 +1869,27 @@
                     allReadings: appData.results.allReadings
                 };
 
+                // Firestore first, download always. Four minutes of hanging
+                // is not repeatable, so the file is written whatever the
+                // network did — it is the only copy if filing failed, and
+                // harmless duplication if it didn't.
+                let filed = null, filingError = null;
+                if (syncUI.canFile()) {
+                    try {
+                        filed = await CT.sync.fileTest({
+                            athleteId:   syncUI.athleteId(),
+                            athleteName: syncUI.athleteName(),
+                            filename,
+                            json: data
+                        });
+                    } catch (error) {
+                        console.error('Failed to file test:', error);
+                        filingError = CT.fb.message(error);
+                    }
+                }
+
+                let downloaded = false;
                 try {
-                    // For browser environment, trigger download
                     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement('a');
@@ -1769,10 +1899,24 @@
                     a.click();
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
-
-                    alert(`Results saved as ${filename}`);
+                    downloaded = true;
                 } catch (error) {
                     console.error('Failed to save results:', error);
+                }
+
+                if (filed) {
+                    const who = syncUI.athleteName();
+                    alert(filed.both
+                        ? `Filed on ${who}'s record — both hands, ${filed.grip === 'half' ? 'half-crimp' : filed.grip}, ${filed.date}.`
+                        : `Filed on ${who}'s record — ${filed.hand} hand, ${filed.date}. Test the other hand to complete it.`);
+                } else if (filingError) {
+                    alert(`Couldn't file this test: ${filingError}
+
+` +
+                          (downloaded ? `Saved as ${filename} — upload it in Coach.` : 'And the download failed too. See console.'));
+                } else if (downloaded) {
+                    alert(`Results saved as ${filename}`);
+                } else {
                     alert('Failed to save results. See console for details.');
                 }
             }
@@ -2170,6 +2314,150 @@
         // ============================================
         // APPLICATION DATA
         // ============================================
+        // ============================================
+        // FILING TO COACH
+        // ============================================
+        /* The strip at the top of setup, and the athlete picker under
+           it. Everything here is optional by design: with no backend
+           configured, or nobody signed in, the tools behave exactly as
+           they did when a test was a file somebody renamed by hand.
+
+           Signing in is not a gate on testing. It is a gate on filing,
+           and only because firestore.rules makes it one. */
+        class SyncUI {
+            constructor() {
+                this.bar      = document.getElementById('syncBar');
+                this.text     = document.getElementById('syncText');
+                this.btn      = document.getElementById('syncBtn');
+                this.fields   = document.getElementById('syncFields');
+                this.email    = document.getElementById('syncEmail');
+                this.password = document.getElementById('syncPassword');
+                this.go       = document.getElementById('syncGo');
+                this.error    = document.getElementById('syncError');
+                this.group    = document.getElementById('athleteGroup');
+                this.pick     = document.getElementById('athletePick');
+                this.nameInput = document.getElementById('athleteName');
+                this.roster   = [];
+                this.bind();
+            }
+
+            bind() {
+                this.btn.addEventListener('click', () => {
+                    if (CT.sync.user) { CT.sync.signOut().catch(e => this.fail(e)); return; }
+                    this.fields.classList.toggle('open');
+                    if (this.fields.classList.contains('open')) this.email.focus();
+                });
+                this.go.addEventListener('click', () => this.signIn());
+                this.password.addEventListener('keydown', e => { if (e.key === 'Enter') this.signIn(); });
+                this.email.addEventListener('keydown', e => { if (e.key === 'Enter') this.password.focus(); });
+                this.pick.addEventListener('change', () => this.chooseAthlete());
+            }
+
+            async signIn() {
+                this.error.style.display = 'none';
+                this.go.disabled = true;
+                this.go.textContent = 'Signing in…';
+                try {
+                    await CT.sync.signIn(this.email.value, this.password.value);
+                    this.password.value = '';
+                    this.fields.classList.remove('open');
+                } catch (err) {
+                    this.fail(err);
+                } finally {
+                    this.go.disabled = false;
+                    this.go.textContent = 'Sign in';
+                }
+            }
+
+            fail(err) {
+                this.error.textContent = CT.fb.message(err);
+                this.error.style.display = 'block';
+            }
+
+            /* A coach signs in once and tests several athletes in a row,
+               so the roster is read on sign-in rather than watched. It
+               changes when somebody is onboarded in Coach, which is not
+               something that happens mid-session. */
+            async onUser(user) {
+                this.bar.classList.toggle('linked', !!user);
+                this.bar.classList.toggle('offline', !user);
+                this.btn.style.display = CT.sync.available ? 'inline-block' : 'none';
+
+                if (!CT.sync.available) {
+                    this.text.textContent = 'No backend configured — tests download as files.';
+                    this.group.style.display = 'none';
+                    return this.unlockName();
+                }
+                if (!user) {
+                    this.text.textContent = 'Not signed in — tests download as files.';
+                    this.btn.textContent = 'Sign in';
+                    this.group.style.display = 'none';
+                    this.roster = [];
+                    return this.unlockName();
+                }
+
+                const who = user.email || 'coach';
+                this.btn.textContent = 'Sign out';
+                this.fields.classList.remove('open');
+                this.text.innerHTML = `Signed in as <span class="sync-who"></span> — loading roster…`;
+                this.text.querySelector('.sync-who').textContent = who;
+
+                try {
+                    this.roster = await CT.sync.roster();
+                } catch (err) {
+                    this.roster = [];
+                    this.text.textContent = `Signed in as ${who} — couldn't load the roster.`;
+                    this.fail(err);
+                    return;
+                }
+
+                if (!this.roster.length) {
+                    this.text.textContent = `Signed in as ${who} — no athletes on this account. Tests download as files.`;
+                    this.group.style.display = 'none';
+                    return this.unlockName();
+                }
+
+                this.text.textContent = `Filing to Coach as ${who}.`;
+                this.pick.replaceChildren();
+                const blank = document.createElement('option');
+                blank.value = '';
+                blank.textContent = 'Choose an athlete…';
+                this.pick.appendChild(blank);
+                /* Built as nodes, not markup. An athlete's name is typed
+                   into Coach by a person and lands here as an <option>
+                   label; textContent is what keeps it a name. */
+                this.roster.forEach(a => {
+                    const o = document.createElement('option');
+                    o.value = a.id;
+                    o.textContent = a.name || a.id;
+                    this.pick.appendChild(o);
+                });
+                this.group.style.display = 'block';
+                this.chooseAthlete();
+            }
+
+            /* The picker owns the name once it has an answer. Typing a
+               name that disagrees with the record it files onto is the
+               exact confusion the filename parsing used to cause. */
+            chooseAthlete() {
+                const a = this.roster.find(a => a.id === this.pick.value);
+                if (!a) return this.unlockName();
+                appData.name = a.name || '';
+                this.nameInput.value = appData.name;
+                this.nameInput.disabled = true;
+                ui.updateBeginButton();
+            }
+
+            unlockName() {
+                this.nameInput.disabled = false;
+                if (typeof ui !== 'undefined' && ui) ui.updateBeginButton();
+            }
+
+            canFile()     { return !!(CT.sync.available && CT.sync.user && this.pick.value); }
+            athleteId()   { return this.pick.value; }
+            athleteName() { const a = this.roster.find(a => a.id === this.pick.value); return a ? (a.name || '') : appData.name; }
+        }
+
         const appData = {
             name: '',
             bodyweight: 0,
@@ -2187,8 +2475,16 @@
         const overlayChart = new OverlayChart();
         const compareSystem = new CompareSystem();
         const ui = new UISystem();
+        const syncUI = new SyncUI();
 
         ui.showScreen('setup'); // initialize nav state
+
+        /* Last, and deliberately not awaited: the tools are usable
+           before the SDK has finished resolving, and a scale that
+           connects while Firebase is still loading is not a race
+           anybody needs to lose. */
+        CT.sync.onUser(user => syncUI.onUser(user));
+        CT.sync.init();
 
         console.log('Critical Force Test Application initialized');
     </script>

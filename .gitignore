@@ -18,3 +18,4 @@ Thumbs.db
 !firebase.json
 !.firebaserc
 !firestore.indexes.json
+!.claude/launch.json
